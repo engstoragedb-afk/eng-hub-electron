@@ -20,7 +20,7 @@ export class AuthRepository extends Repository<IAuth> implements IAuthRepository
         return data.data;
     }
 
-     async login(param: ILoginParam): Promise<IAuth> {
+    async login(param: ILoginParam): Promise<IAuth> {
         const { data } = await this.restApi.axios.post('/user/login', {
             email: param.email,
             password: param.password
@@ -36,22 +36,21 @@ export class AuthRepository extends Repository<IAuth> implements IAuthRepository
             token: data.data.token,
         }).unmarshall();
     }
-    
+
     async auth(): Promise<IAuth> {
-        if (typeof window === 'undefined') return {} as IAuth;
-        const authData = JSON.parse(localStorage.getItem('auth') || '{}');
-        
-        const getCookie = (name: string) => {
-            const value = `; ${document.cookie}`;
-            const parts = value.split(`; ${name}=`);
-            if (parts.length === 2) return parts.pop()?.split(';').shift() || '';
-            return '';
+        if (typeof window === 'undefined') {
+            return {} as IAuth;
         }
-        
-        return {
-            ...authData,
-            token: getCookie("token")
-        };
+
+        const authData = JSON.parse(
+            localStorage.getItem('auth') || '{}'
+        );
+
+        if (authData.token) {
+            this.restApi.setToken(authData.token);
+        }
+
+        return authData;
     }
 
     async logout(): Promise<void> {

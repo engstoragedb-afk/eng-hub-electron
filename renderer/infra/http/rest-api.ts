@@ -7,20 +7,21 @@ export class RestApi {
   private baseUrl: string;
   public token: string;
 
-  private constructor(baseUrl: string = "http://localhost:8000", token?: string) {
+  private constructor(
+    baseUrl: string = "http://localhost:8000",
+    token?: string
+  ) {
     this.baseUrl = baseUrl;
     this.token = token || "";
-    if (!this.token) {
-      if (typeof window !== 'undefined') {
-        const getCookie = (name: string) => {
-          const value = `; ${document.cookie}`;
-          const parts = value.split(`; ${name}=`);
-          if (parts.length === 2) return parts.pop()?.split(';').shift() || '';
-          return '';
-        }
-        this.token = getCookie("token");
-      }
+
+    if (!this.token && typeof window !== "undefined") {
+      const authData = JSON.parse(
+        localStorage.getItem("auth") || "{}"
+      );
+
+      this.token = authData.token || "";
     }
+
     this.updateAxios();
   }
 
@@ -43,6 +44,7 @@ export class RestApi {
         ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
         Accept: "application/json",
         "Content-Type": "application/json",
+        'ngrok-skip-browser-warning': '69420'
       },
     });
     return this;
@@ -56,5 +58,4 @@ export class RestApi {
   }
 }
 
-console.log("BACKEND_BASE_URL configured as:", config.BACKEND_BASE_URL);
 export const restApi = RestApi.getInstance(config.BACKEND_BASE_URL || "http://127.0.0.1:3012/api");

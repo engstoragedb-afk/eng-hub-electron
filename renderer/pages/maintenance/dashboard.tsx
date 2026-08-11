@@ -35,7 +35,6 @@ export default function MaintenanceDashboard() {
 
     auditLogService.getLatestLogs(5, ACTIONS.CRON_APL_WARNING)
       .then((data) => {
-        console.log("Audit Logs:", JSON.stringify(data, null, 2));
         setAuditLogs(data || []);
       })
       .catch((err) => console.error("Failed to fetch audit logs:", err));
