@@ -1,8 +1,8 @@
 {
   "private": true,
-  "name": "ENG HUB PANEL",
+  "name": "eng-hub-panel",
   "description": "My application description",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "Yoshihide Shiono <shiono.yoshihide@gmail.com>",
   "type": "module",
   "main": "app/main.js",

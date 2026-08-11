@@ -1,5 +1,5 @@
-appId: com.example.nextron
-productName: My Nextron App
+appId: com.enghub.nextron
+productName: ENG Hub Panel
 copyright: Copyright © 2026 Yoshihide Shiono
 directories:
   output: dist
@@ -9,7 +9,21 @@ files:
     filter:
       - package.json
       - app
+mac:
+  target:
+    - dmg
+    - zip
+  icon: resources/icon.icns
+win:
+  target:
+    - nsis
+  icon: resources/icon.ico
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  installerIcon: resources/icon.ico
 publish:
   provider: github
-  owner: YOUR_GITHUB_USERNAME
-  repo: YOUR_REPO_NAME
+  owner: engstoragedb-afk
+  repo: eng-hub-electron
+  releaseType: release

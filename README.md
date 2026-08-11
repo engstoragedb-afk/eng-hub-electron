@@ -36,3 +36,6 @@ $ yarn dev (or `npm run dev` or `pnpm run dev`)
 # production build
 $ yarn build (or `npm run build` or `pnpm run build`)
 ```
+### Build
+
+npm run build -- --win --publish always
