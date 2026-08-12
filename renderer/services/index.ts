@@ -6,3 +6,4 @@ export * from "./type-unit-service";
 export * from "./location-service";
 export * from "./user-service";
 export * from "./operator-service";
+export * from "./audit-log-service";

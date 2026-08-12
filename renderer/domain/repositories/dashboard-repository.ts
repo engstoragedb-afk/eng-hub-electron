@@ -1,5 +1,7 @@
 import { IDashboardStats } from "@/domain/models";
 
-export interface IDashboardRepository {
+import { IRepository } from "./repository";
+
+export interface IDashboardRepository extends IRepository<IDashboardStats> {
     getStats(): Promise<IDashboardStats[]>;
 }

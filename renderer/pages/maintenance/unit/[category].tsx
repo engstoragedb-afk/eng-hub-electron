@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
+import toast from "react-hot-toast";
 
 import MaintenanceLayout from "@/components/organisms/MaintenanceLayout";
 import UnitCard from "@/components/molecules/UnitCard";
@@ -42,6 +43,56 @@ export default function MaintenanceUnitList() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 9;
 
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [newUnit, setNewUnit] = useState({
+    name: "",
+    hm: 0,
+    hours: 0,
+    manufacture_year: new Date().getFullYear(),
+  });
+
+  useEffect(() => {
+    if (isAddModalOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [isAddModalOpen]);
+
+  const handleCreateUnit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUnit.name || !id) return;
+    setIsSubmitting(true);
+    try {
+      await unitService.createUnit({
+        category_id: id as string,
+        name: newUnit.name,
+        hm: Number(newUnit.hm),
+        hours: Number(newUnit.hours),
+        manufacture_year: Number(newUnit.manufacture_year),
+      });
+      toast.success("Unit berhasil ditambahkan!");
+      setIsAddModalOpen(false);
+      setNewUnit({
+        name: "",
+        hm: 0,
+        hours: 0,
+        manufacture_year: new Date().getFullYear(),
+      });
+      setRefreshKey(k => k + 1);
+    } catch (err) {
+      console.error(err);
+      toast.error("Gagal menambahkan unit");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const [locationOptions, setLocationOptions] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
@@ -60,7 +111,41 @@ export default function MaintenanceUnitList() {
     return () => clearTimeout(timer);
   }, [search]);
 
+  const STORAGE_KEY = `unit_filters_${category}`;
+  const isRestoringRef = useRef(false);
+
+  // Restore filters
   useEffect(() => {
+    if (!category) return;
+    const stored = sessionStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        isRestoringRef.current = true;
+        if (parsed.search !== undefined) setSearch(parsed.search);
+        if (parsed.location !== undefined) setLocation(parsed.location);
+        if (parsed.hmRange !== undefined) setHmRange(parsed.hmRange);
+        if (parsed.hoursRange !== undefined) setHoursRange(parsed.hoursRange);
+        if (parsed.status !== undefined) setStatus(parsed.status);
+        if (parsed.gpsStatusFilter !== undefined) setGpsStatusFilter(parsed.gpsStatusFilter);
+        if (parsed.currentPage !== undefined) setCurrentPage(parsed.currentPage);
+        
+        setTimeout(() => {
+          isRestoringRef.current = false;
+        }, 100);
+      } catch (e) {}
+    }
+  }, [category]);
+
+  // Save filters
+  useEffect(() => {
+    if (!category || isRestoringRef.current) return;
+    const filters = { search, location, hmRange, hoursRange, status, gpsStatusFilter, currentPage };
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
+  }, [search, location, hmRange, hoursRange, status, gpsStatusFilter, currentPage, category]);
+
+  useEffect(() => {
+    if (isRestoringRef.current) return;
     setCurrentPage(1);
   }, [debouncedSearch, location, hmRange, hoursRange, status, category, gpsStatusFilter]);
 
@@ -107,7 +192,7 @@ export default function MaintenanceUnitList() {
         }
       })
       .catch((err) => console.error("Failed to fetch units:", err));
-  }, [id, category, currentPage, debouncedSearch, status, location, gpsStatusFilter, hmRange, hoursRange]);
+  }, [id, category, currentPage, debouncedSearch, status, location, gpsStatusFilter, hmRange, hoursRange, refreshKey]);
 
   const categoryName = typeof category === "string" ? category : "";
 
@@ -155,6 +240,12 @@ export default function MaintenanceUnitList() {
               title={``}
               description={`Menampilkan semua unit dalam maintenance untuk kategori ${categoryName}`}
             />
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="rounded-xl bg-sky-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
+            >
+              Tambah Unit
+            </button>
           </div>
 
           <div className="mb-6 rounded-2xl border border-slate-200 dark:border-white/5 bg-white dark:bg-slate-900/60 p-5">
@@ -313,6 +404,43 @@ export default function MaintenanceUnitList() {
           )}
         </section>
       </MaintenanceLayout>
+
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div 
+            className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+          >
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Tambah Unit Baru</h3>
+            </div>
+            <div className="p-6 overflow-y-auto">
+              <form id="addUnitForm" onSubmit={handleCreateUnit} className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Kode / Nama Unit *</label>
+                  <input required type="text" value={newUnit.name} onChange={e => setNewUnit({...newUnit, name: e.target.value})} className="w-full rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900/50 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">HM *</label>
+                    <input required type="number" min="0" value={newUnit.hm} onChange={e => setNewUnit({...newUnit, hm: parseInt(e.target.value) || 0})} className="w-full rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900/50 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500" />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Total Jam *</label>
+                    <input required type="number" min="0" value={newUnit.hours} onChange={e => setNewUnit({...newUnit, hours: parseInt(e.target.value) || 0})} className="w-full rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900/50 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500" />
+                  </div>
+                </div>
+
+              </form>
+            </div>
+            <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 flex justify-end gap-3">
+              <button type="button" onClick={() => setIsAddModalOpen(false)} disabled={isSubmitting} className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition">Batal</button>
+              <button type="submit" form="addUnitForm" disabled={isSubmitting} className="px-4 py-2 rounded-xl bg-sky-500 text-sm font-semibold text-white hover:bg-sky-600 disabled:opacity-50 transition">
+                {isSubmitting ? "Menyimpan..." : "Simpan"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </React.Fragment>
   );
 }

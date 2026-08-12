@@ -49,7 +49,10 @@ export default function MaintenanceUnitPage() {
               category={category.name}
               count={category.count}
               imageUrl={category.image || categoryImages[category.name]}
-              onSelect={() => router.push(`/maintenance/unit/${encodeURIComponent(category.name)}?id=${category.id}`)}
+              onSelect={() => {
+                sessionStorage.removeItem(`unit_filters_${category.name}`);
+                router.push(`/maintenance/unit/${encodeURIComponent(category.name)}?id=${category.id}`);
+              }}
             />
           ))}
         </section>

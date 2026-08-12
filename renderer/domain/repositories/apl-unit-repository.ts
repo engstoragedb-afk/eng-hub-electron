@@ -7,6 +7,8 @@ export interface UpsertAplUnitPayload {
     vault?: number;
 }
 
-export interface IAplUnitRepository {
+import { IRepository } from "./repository";
+
+export interface IAplUnitRepository extends IRepository<IAplUnit> {
     upsertAplUnit(data: UpsertAplUnitPayload): Promise<IAplUnit>;
 }

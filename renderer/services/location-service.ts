@@ -1,15 +1,26 @@
-import { ILocationService } from "../domain/services/location-service";
-import { ILocationRepository } from "../domain/repositories/location-repository";
-import { LocationRepository } from "../infra/http/location-repository";
-import { restApi } from "../infra/http/rest-api";
+import { ILocationService } from "@/domain/services/location-service";
+import { ILocationRepository } from "@/domain/repositories/location-repository";
+import { locationRepository } from "@/infra/http/location-repository";
 import { ILocation } from "@/domain/models/location";
+import { Service } from "@/services/service";
 
-class LocationService implements ILocationService {
-    constructor(private readonly locationRepository: ILocationRepository) {}
+class LocationService extends Service<ILocation, ILocationRepository> implements ILocationService {
+    private static instance: LocationService;
+
+    private constructor(repository: ILocationRepository) {
+        super(repository);
+    }
+
+    public static getInstance(repository: ILocationRepository): LocationService {
+        if (!LocationService.instance) {
+            LocationService.instance = new LocationService(repository);
+        }
+        return LocationService.instance;
+    }
 
     async getLocations(): Promise<ILocation[]> {
-        return this.locationRepository.getLocations();
+        return this.repository.getLocations();
     }
 }
 
-export const locationService = new LocationService(new LocationRepository(restApi));
+export const locationService = LocationService.getInstance(locationRepository);

@@ -1,26 +1,38 @@
 import { IUsers } from "@/domain/models";
 import { IUserService } from "@/domain/services/user-service";
 import { IUserRepository } from "@/domain/repositories/user-repository";
-import { UserRepository } from "@/infra/http/user-repository";
+import { userRepository } from "@/infra/http/user-repository";
+import { Service } from "@/services/service";
 
-class UserService implements IUserService {
-  constructor(private readonly userRepository: IUserRepository) {}
+class UserService extends Service<IUsers, IUserRepository> implements IUserService {
+    private static instance: UserService;
 
-  async createUser(data: any): Promise<IUsers> {
-    try {
-      return await this.userRepository.createUser(data);
-    } catch (error) {
-      throw error;
+    private constructor(repository: IUserRepository) {
+        super(repository);
     }
-  }
 
-  async getUsersByRole(role: string, params?: { search?: string; unit?: string; location?: string }): Promise<IUsers[]> {
-    try {
-      return await this.userRepository.getUsersByRole(role, params);
-    } catch (error) {
-      throw error;
+    public static getInstance(repository: IUserRepository): UserService {
+        if (!UserService.instance) {
+            UserService.instance = new UserService(repository);
+        }
+        return UserService.instance;
     }
-  }
+
+    async createUser(data: any): Promise<IUsers> {
+        try {
+            return await this.repository.createUser(data);
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getUsersByRole(role: string, params?: { search?: string; unit?: string; location?: string }): Promise<IUsers[]> {
+        try {
+            return await this.repository.getUsersByRole(role, params);
+        } catch (error) {
+            throw error;
+        }
+    }
 }
 
-export const userService = new UserService(new UserRepository());
+export const userService = UserService.getInstance(userRepository);

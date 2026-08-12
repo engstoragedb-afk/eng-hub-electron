@@ -1,18 +1,26 @@
 import { ITypeUnitRepository } from "@/domain/repositories/type-unit-repository";
-import { TypeUnitRepository } from "@/infra/http/type-unit-repository";
-import { restApi } from "@/infra/http/rest-api";
+import { ITypeUnitService } from "@/domain/services/type-unit-service";
+import { typeUnitRepository } from "@/infra/http/type-unit-repository";
 import { ITypeUnit } from "@/domain/models/type-unit";
+import { Service } from "@/services/service";
 
-export class TypeUnitService {
-    private typeUnitRepo: ITypeUnitRepository;
+export class TypeUnitService extends Service<ITypeUnit, ITypeUnitRepository> implements ITypeUnitService {
+    private static instance: TypeUnitService;
 
-    constructor() {
-        this.typeUnitRepo = new TypeUnitRepository(restApi);
+    private constructor(repository: ITypeUnitRepository) {
+        super(repository);
+    }
+
+    public static getInstance(repository: ITypeUnitRepository): TypeUnitService {
+        if (!TypeUnitService.instance) {
+            TypeUnitService.instance = new TypeUnitService(repository);
+        }
+        return TypeUnitService.instance;
     }
 
     async getTypeUnits(): Promise<ITypeUnit[]> {
-        return this.typeUnitRepo.getTypeUnits();
+        return this.repository.getTypeUnits();
     }
 }
 
-export const typeUnitService = new TypeUnitService();
+export const typeUnitService = TypeUnitService.getInstance(typeUnitRepository);

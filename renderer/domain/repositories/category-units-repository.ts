@@ -1,5 +1,7 @@
 import { ICategoryUnit } from "@/domain/models";
 
-export interface ICategoryUnitsRepository {
+import { IRepository } from "./repository";
+
+export interface ICategoryUnitsRepository extends IRepository<ICategoryUnit> {
     getAll(): Promise<ICategoryUnit[]>;
 }

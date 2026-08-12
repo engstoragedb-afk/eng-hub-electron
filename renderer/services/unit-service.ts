@@ -1,30 +1,42 @@
-import { IUnitRepository, IUnitGetParams, IPaginatedResponse } from "@/domain/repositories/unit-repository";
-import { UnitRepository } from "@/infra/http/unit-repository";
-import { restApi } from "@/infra/http/rest-api";
+import { IUnitRepository, IUnitGetParams, IPaginatedResponse, ICreateUnitPayload } from "@/domain/repositories/unit-repository";
+import { IUnitService } from "@/domain/services/unit-service";
+import { unitRepository } from "@/infra/http/unit-repository";
 import { IUnit } from "@/domain/models";
+import { Service } from "@/services/service";
 
-export class UnitService {
-    private unitRepo: IUnitRepository;
+export class UnitService extends Service<IUnit, IUnitRepository> implements IUnitService {
+    private static instance: UnitService;
 
-    constructor(unitRepo?: IUnitRepository) {
-        this.unitRepo = unitRepo || new UnitRepository(restApi);
+    private constructor(repository: IUnitRepository) {
+        super(repository);
+    }
+
+    public static getInstance(repository: IUnitRepository): UnitService {
+        if (!UnitService.instance) {
+            UnitService.instance = new UnitService(repository);
+        }
+        return UnitService.instance;
     }
 
     async getUnitDetails(id: string): Promise<IUnit> {
-        return this.unitRepo.getUnitDetails(id);
+        return this.repository.getUnitDetails(id);
     }
 
     async getUnitsByCategory(categoryId: string, params?: IUnitGetParams): Promise<IPaginatedResponse<IUnit>> {
-        return this.unitRepo.getUnitsByCategory(categoryId, params);
+        return this.repository.getUnitsByCategory(categoryId, params);
     }
 
     async getAllUnits(params?: IUnitGetParams): Promise<IUnit[]> {
-        return this.unitRepo.getAllUnits(params);
+        return this.repository.getAllUnits(params);
     }
 
     async updateUnit(id: string, data: Partial<IUnit>): Promise<IUnit> {
-        return this.unitRepo.updateUnit(id, data);
+        return this.repository.updateUnit(id, data);
+    }
+
+    async createUnit(data: ICreateUnitPayload): Promise<IUnit> {
+        return this.repository.createUnit(data);
     }
 }
 
-export const unitService = new UnitService();
+export const unitService = UnitService.getInstance(unitRepository);

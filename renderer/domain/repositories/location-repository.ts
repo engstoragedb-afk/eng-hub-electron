@@ -1,5 +1,7 @@
 import { ILocation } from "@/domain/models/location";
 
-export interface ILocationRepository {
+import { IRepository } from "./repository";
+
+export interface ILocationRepository extends IRepository<ILocation> {
     getLocations(): Promise<ILocation[]>;
 }

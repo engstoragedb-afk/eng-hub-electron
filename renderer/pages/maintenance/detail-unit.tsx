@@ -12,7 +12,8 @@ import CopyButton from "@/components/atoms/CopyButton";
 import Lightbox from "@/components/organisms/Lightbox";
 import ImageCropModal from "@/components/organisms/ImageCropModal";
 import dynamic from 'next/dynamic';
-import { unitService, aplUnitService, typeUnitService } from "@/services";
+import { unitService, aplUnitService, typeUnitService, auditLogService } from "@/services";
+import { ACTIONS } from "@/common/utils/action";
 
 const DetailUnitChart = dynamic(() => import("@/components/organisms/DetailUnitChart"), { 
   ssr: false, 
@@ -43,6 +44,43 @@ export default function UnitDetailPage() {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+
+  const [isGpsLogOpen, setIsGpsLogOpen] = useState(false);
+  const [activeGpsLogTab, setActiveGpsLogTab] = useState<'HM' | 'ERROR'>('HM');
+  const [gpsLogs, setGpsLogs] = useState<any[]>([]);
+  const [gpsLogsPage, setGpsLogsPage] = useState(1);
+  const [gpsLogsTotal, setGpsLogsTotal] = useState(0);
+  const [isFetchingGpsLogs, setIsFetchingGpsLogs] = useState(false);
+  const gpsLogsLimit = 10;
+
+  useEffect(() => {
+    if (!isGpsLogOpen || !apiUnit) return;
+
+    const action = activeGpsLogTab === 'HM' ? ACTIONS.CRON_UPDATE_GPS_HM_HOURS : ACTIONS.CRON_FETCH_GPS_ERROR;
+    
+    setIsFetchingGpsLogs(true);
+    auditLogService.getAllLogs({
+      action,
+      search: apiUnit.id,
+      page: gpsLogsPage,
+      limit: gpsLogsLimit
+    })
+      .then(res => {
+        setGpsLogs(res.data || []);
+        setGpsLogsTotal(res.totalRow || 0);
+      })
+      .catch(console.error)
+      .finally(() => setIsFetchingGpsLogs(false));
+  }, [isGpsLogOpen, activeGpsLogTab, gpsLogsPage, apiUnit?.id]);
+
+  useEffect(() => {
+    if (isGpsLogOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => { document.body.style.overflow = "unset"; };
+  }, [isGpsLogOpen]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -482,6 +520,12 @@ export default function UnitDetailPage() {
                     Informasi tambahan unit.
                   </p>
                 </div>
+                <button
+                  onClick={() => setIsGpsLogOpen(true)}
+                  className="rounded-xl border border-sky-500 bg-sky-50 dark:bg-sky-500/10 px-3 py-1.5 text-xs font-semibold text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-500/20 transition"
+                >
+                  HISTORY GPS
+                </button>
               </div>
               <div className="space-y-3 text-sm text-slate-700 dark:text-slate-300 pt-4">
                 <div className="flex items-center justify-between">
@@ -703,6 +747,105 @@ export default function UnitDetailPage() {
           reader.readAsDataURL(blob);
         }}
       />
+
+      {/* GPS Log Drawer */}
+      <div 
+        className={`fixed inset-0 z-50 transition-opacity duration-300 ${isGpsLogOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+      >
+        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsGpsLogOpen(false)} />
+        <div 
+          className={`absolute inset-y-0 right-0 w-full max-w-lg bg-white dark:bg-slate-900 shadow-2xl transition-transform duration-300 ease-in-out flex flex-col ${isGpsLogOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        >
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-white/10">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">HISTORY GPS</h3>
+            <button onClick={() => setIsGpsLogOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-full hover:bg-slate-100 dark:hover:bg-white/5 transition">
+              <FaTimes />
+            </button>
+          </div>
+          <div className="flex px-6 pt-4 gap-4 border-b border-slate-200 dark:border-white/10">
+            <button
+              onClick={() => { setActiveGpsLogTab('HM'); setGpsLogsPage(1); }}
+              className={`pb-3 text-sm font-semibold transition border-b-2 ${activeGpsLogTab === 'HM' ? 'border-sky-500 text-sky-500' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+            >
+              Update HM / Jam
+            </button>
+            <button
+              onClick={() => { setActiveGpsLogTab('ERROR'); setGpsLogsPage(1); }}
+              className={`pb-3 text-sm font-semibold transition border-b-2 ${activeGpsLogTab === 'ERROR' ? 'border-sky-500 text-sky-500' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+            >
+              Error GPS
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            {isFetchingGpsLogs ? (
+              <div className="flex justify-center items-center h-32">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-sky-500 dark:border-white/10 dark:border-t-sky-500" />
+              </div>
+            ) : gpsLogs.length === 0 ? (
+              <div className="text-center text-slate-500 py-12 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
+                Tidak ada log ditemukan.
+              </div>
+            ) : (
+              gpsLogs.map(log => {
+                let parsedOld = {};
+                let parsedNew = {};
+                try {
+                  if (log.old_data) parsedOld = JSON.parse(log.old_data);
+                  if (log.new_data) parsedNew = JSON.parse(log.new_data);
+                } catch (e) {}
+                
+                const logDate = new Date(log.created_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+                
+                return (
+                  <div key={log.id} className="p-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-xs font-semibold text-slate-400">{logDate}</span>
+                      <Badge tone="neutral">{log.user_agent || "Sistem"}</Badge>
+                    </div>
+                    {activeGpsLogTab === 'HM' ? (
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-slate-600 dark:text-slate-400">HM:</span>
+                          <span className="font-semibold text-slate-900 dark:text-white">{(parsedOld as any).hm?.toFixed(2)} → <span className="text-emerald-500">{(parsedNew as any).hm?.toFixed(2)}</span></span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-slate-600 dark:text-slate-400">Jam:</span>
+                          <span className="font-semibold text-slate-900 dark:text-white">{(parsedOld as any).hours?.toFixed(2)} → <span className="text-emerald-500">{(parsedNew as any).hours?.toFixed(2)}</span></span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm">
+                        <p className="font-medium text-rose-500 bg-rose-50 dark:bg-rose-500/10 p-3 rounded-xl border border-rose-100 dark:border-rose-500/20">
+                          {(parsedNew as any).error || "Error tidak diketahui"}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+          <div className="p-4 border-t border-slate-200 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
+            <button 
+              disabled={gpsLogsPage === 1}
+              onClick={() => setGpsLogsPage(p => Math.max(1, p - 1))}
+              className="px-4 py-2 text-sm font-semibold rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 disabled:opacity-50 transition hover:bg-slate-50 dark:hover:bg-slate-700"
+            >
+              Sebelumnya
+            </button>
+            <span className="text-xs font-medium text-slate-500">
+              Hal {gpsLogsPage} dari {Math.max(1, Math.ceil(gpsLogsTotal / gpsLogsLimit))}
+            </span>
+            <button 
+              disabled={gpsLogsPage >= Math.ceil(gpsLogsTotal / gpsLogsLimit)}
+              onClick={() => setGpsLogsPage(p => p + 1)}
+              className="px-4 py-2 text-sm font-semibold rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 disabled:opacity-50 transition hover:bg-slate-50 dark:hover:bg-slate-700"
+            >
+              Berikutnya
+            </button>
+          </div>
+        </div>
+      </div>
     </React.Fragment>
   );
 }

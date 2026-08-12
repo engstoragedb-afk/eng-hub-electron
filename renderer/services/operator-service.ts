@@ -1,22 +1,29 @@
 import { IOperatorService } from "@/domain/services/operator-service";
 import { IOperatorRepository, IAssignOperatorRequest, IAssignOperatorResponse } from "@/domain/repositories/operator-repository";
-import { OperatorRepository } from "@/infra/http/operator-repository";
-import { restApi } from "@/infra/http/rest-api";
+import { operatorRepository } from "@/infra/http/operator-repository";
+import { Service } from "@/services/service";
 
-export class OperatorService implements IOperatorService {
-    private operatorRepo: IOperatorRepository;
+export class OperatorService extends Service<any, IOperatorRepository> implements IOperatorService {
+    private static instance: OperatorService;
 
-    constructor(operatorRepo?: IOperatorRepository) {
-        this.operatorRepo = operatorRepo || new OperatorRepository(restApi);
+    private constructor(repository: IOperatorRepository) {
+        super(repository);
+    }
+
+    public static getInstance(repository: IOperatorRepository): OperatorService {
+        if (!OperatorService.instance) {
+            OperatorService.instance = new OperatorService(repository);
+        }
+        return OperatorService.instance;
     }
 
     async assignOperator(data: IAssignOperatorRequest): Promise<IAssignOperatorResponse> {
-        return this.operatorRepo.assignOperator(data);
+        return this.repository.assignOperator(data);
     }
 
     async unassignOperator(operatorId: string): Promise<any> {
-        return this.operatorRepo.unassignOperator(operatorId);
+        return this.repository.unassignOperator(operatorId);
     }
 }
 
-export const operatorService = new OperatorService();
+export const operatorService = OperatorService.getInstance(operatorRepository);

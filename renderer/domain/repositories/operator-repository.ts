@@ -10,7 +10,9 @@ export interface IAssignOperatorResponse {
     unit_location: any;
 }
 
-export interface IOperatorRepository {
+import { IRepository } from "./repository";
+
+export interface IOperatorRepository extends IRepository<any> {
     assignOperator(data: IAssignOperatorRequest): Promise<IAssignOperatorResponse>;
     unassignOperator(operatorId: string): Promise<any>;
 }

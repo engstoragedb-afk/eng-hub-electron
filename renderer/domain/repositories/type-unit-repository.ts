@@ -1,5 +1,7 @@
 import { ITypeUnit } from "@/domain/models/type-unit";
 
-export interface ITypeUnitRepository {
+import { IRepository } from "./repository";
+
+export interface ITypeUnitRepository extends IRepository<ITypeUnit> {
     getTypeUnits(): Promise<ITypeUnit[]>;
 }

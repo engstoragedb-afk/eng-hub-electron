@@ -1,14 +1,21 @@
-import { IAuditLogService } from "../domain/services/audit-log-service";
-import { IAuditLogRepository } from "../domain/repositories/audit-log-repository";
-import { AuditLogRepository } from "../infra/http/audit-log.repository";
-import { restApi } from "../infra/http/rest-api";
-import { IAuditLog } from "../domain/models/audit-log";
+import { IAuditLogService } from "@/domain/services/audit-log-service";
+import { IAuditLogRepository } from "@/domain/repositories/audit-log-repository";
+import { auditLogRepository } from "@/infra/http/audit-log-repository";
+import { IAuditLog } from "@/domain/models/audit-log";
+import { Service } from "@/services/service";
 
-class AuditLogService implements IAuditLogService {
-    private repository: IAuditLogRepository;
+class AuditLogService extends Service<IAuditLog, IAuditLogRepository> implements IAuditLogService {
+    private static instance: AuditLogService;
 
-    constructor(repository: IAuditLogRepository) {
-        this.repository = repository;
+    private constructor(repository: IAuditLogRepository) {
+        super(repository);
+    }
+
+    public static getInstance(repository: IAuditLogRepository): AuditLogService {
+        if (!AuditLogService.instance) {
+            AuditLogService.instance = new AuditLogService(repository);
+        }
+        return AuditLogService.instance;
     }
 
     async getLatestLogs(limit?: number, action?: string): Promise<IAuditLog[]> {
@@ -20,4 +27,4 @@ class AuditLogService implements IAuditLogService {
     }
 }
 
-export const auditLogService = new AuditLogService(new AuditLogRepository(restApi));
+export const auditLogService = AuditLogService.getInstance(auditLogRepository);

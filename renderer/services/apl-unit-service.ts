@@ -1,19 +1,26 @@
-import { IAplUnitService } from "../domain/services/apl-unit-service";
-import { IAplUnitRepository, UpsertAplUnitPayload } from "../domain/repositories/apl-unit-repository";
-import { AplUnitRepository } from "../infra/http/apl-unit-repository";
-import { restApi } from "../infra/http/rest-api";
-import { IAplUnit } from "../domain/models/apl-unit";
+import { IAplUnitService } from "@/domain/services/apl-unit-service";
+import { IAplUnitRepository, UpsertAplUnitPayload } from "@/domain/repositories/apl-unit-repository";
+import { aplUnitRepository } from "@/infra/http/apl-unit-repository";
+import { IAplUnit } from "@/domain/models/apl-unit";
+import { Service } from "@/services/service";
 
-export class AplUnitService implements IAplUnitService {
-    private aplUnitRepo: IAplUnitRepository;
+export class AplUnitService extends Service<IAplUnit, IAplUnitRepository> implements IAplUnitService {
+    private static instance: AplUnitService;
 
-    constructor(aplUnitRepo?: IAplUnitRepository) {
-        this.aplUnitRepo = aplUnitRepo || new AplUnitRepository(restApi);
+    private constructor(aplUnitRepo: IAplUnitRepository) {
+        super(aplUnitRepo);
+    }
+
+    public static getInstance(aplUnitRepo: IAplUnitRepository): AplUnitService {
+        if (!AplUnitService.instance) {
+            AplUnitService.instance = new AplUnitService(aplUnitRepo);
+        }
+        return AplUnitService.instance;
     }
 
     async upsertAplUnit(data: UpsertAplUnitPayload): Promise<IAplUnit> {
-        return this.aplUnitRepo.upsertAplUnit(data);
+        return this.repository.upsertAplUnit(data);
     }
 }
 
-export const aplUnitService = new AplUnitService();
+export const aplUnitService = AplUnitService.getInstance(aplUnitRepository);
