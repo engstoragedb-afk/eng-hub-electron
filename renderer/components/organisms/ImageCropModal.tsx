@@ -37,7 +37,7 @@ export default function ImageCropModal({
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
   const imgRef = useRef<HTMLImageElement>(null);
-  const [aspect, setAspect] = useState<number | undefined>(undefined); // undefined means free crop
+  const [aspect] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     if (isOpen) {
