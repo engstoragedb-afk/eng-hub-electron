@@ -31,31 +31,31 @@ export const lineRangeData = {
     label: "1 minggu terakhir",
     labels: ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"],
     data: [0, 0, 0, 0, 0, 0, 0],
-    doughnutData: [0, 0, 0, 0, 100],
+    doughnutData: [0, 0, 0, 0, 0],
   },
   "4 minggu": {
     label: "4 minggu terakhir",
     labels: ["Week 1", "Week 2", "Week 3", "Week 4"],
     data: [0, 0, 0, 0],
-    doughnutData: [0, 0, 0, 0, 100],
+    doughnutData: [0, 0, 0, 0, 0],
   },
   "5 minggu": {
     label: "5 minggu terakhir",
     labels: ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5"],
     data: [0, 0, 0, 0, 0],
-    doughnutData: [0, 0, 0, 0, 100],
+    doughnutData: [0, 0, 0, 0, 0],
   },
   "1 bulan": {
     label: "1 bulan terakhir",
     labels: ["Minggu 1", "Minggu 2", "Minggu 3", "Minggu 4"],
     data: [0, 0, 0, 0],
-    doughnutData: [0, 0, 0, 0, 100],
+    doughnutData: [0, 0, 0, 0, 0],
   },
   "Custom": {
     label: "Custom range",
     labels: ["Day 1", "Day 2", "Day 3"],
     data: [0, 0, 0],
-    doughnutData: [0, 0, 0, 0, 100],
+    doughnutData: [0, 0, 0, 0, 0],
   },
 };
 

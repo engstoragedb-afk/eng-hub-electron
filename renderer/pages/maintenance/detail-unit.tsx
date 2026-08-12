@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
-import { FaArrowLeft, FaExpandAlt, FaTimes, FaSearchPlus, FaCrop, FaImage } from "react-icons/fa";
+import { FaArrowLeft, FaExpandAlt, FaTimes, FaSearchPlus, FaCrop, FaImage, FaCheckCircle, FaWrench, FaMapMarkerAlt, FaWifi, FaExclamationTriangle, FaEyeSlash } from "react-icons/fa";
 import toast from "react-hot-toast";
+import { EGPSStatus } from "@/common/utils/status";
 
 import MaintenanceLayout from "@/components/organisms/MaintenanceLayout";
 import Badge from "@/components/atoms/Badge";
@@ -59,6 +60,36 @@ export default function UnitDetailPage() {
       .catch(console.error);
   }, []);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const getGpsStatusColor = (status?: string | null) => {
+    switch (status) {
+      case EGPSStatus.CONNECTED:
+        return "success";
+      case EGPSStatus.OFFLINE:
+        return "neutral";
+      case EGPSStatus.ERROR_NOT_FOUND:
+      case EGPSStatus.ERROR_INVALID_DEVICE:
+      case EGPSStatus.ERROR_UNAVAILABLE:
+        return "warning";
+      default:
+        return "neutral";
+    }
+  };
+
+  const getGpsStatusIcon = (status?: string | null) => {
+    switch (status) {
+      case EGPSStatus.CONNECTED:
+        return <FaWifi className="mr-1" />;
+      case EGPSStatus.OFFLINE:
+        return <FaEyeSlash className="mr-1" />;
+      case EGPSStatus.ERROR_NOT_FOUND:
+      case EGPSStatus.ERROR_INVALID_DEVICE:
+      case EGPSStatus.ERROR_UNAVAILABLE:
+        return <FaExclamationTriangle className="mr-1" />;
+      default:
+        return <FaMapMarkerAlt className="mr-1" />;
+    }
+  };
 
   const handleUpdateUnit = async (data: any) => {
     try {
@@ -297,30 +328,39 @@ export default function UnitDetailPage() {
                       <EditableText value={unit.code} onSave={(val) => handleUpdateUnit({ name: val })} />
                     </h2>
                   </div>
-                  <div 
-                    onDoubleClick={() => setIsEditingStatus(true)} 
-                    className="cursor-pointer" 
-                    title="Klik 2 kali untuk mengedit status"
-                  >
-                    {isEditingStatus ? (
-                      <select
-                        value={unit.status}
-                        onChange={(e) => {
-                          setIsEditingStatus(false);
-                          if (e.target.value !== unit.status) {
-                            handleUpdateUnit({ status: e.target.value === "Siap" ? "READY" : "BREAKDOWN" });
-                          }
-                        }}
-                        onBlur={() => setIsEditingStatus(false)}
-                        className="rounded-full bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-sky-500 px-3 py-1 outline-none text-sm font-semibold"
-                        autoFocus
-                      >
-                        <option value="Siap">Siap</option>
-                        <option value="Breakdown">Breakdown</option>
-                      </select>
-                    ) : (
-                      <Badge tone={unit.status === "Siap" ? "success" : "warning"}>
-                        {unit.status}
+                  <div className="flex flex-col items-end gap-2 shrink-0">
+                    <div 
+                      onDoubleClick={() => setIsEditingStatus(true)} 
+                      className="cursor-pointer" 
+                      title="Klik 2 kali untuk mengedit status"
+                    >
+                      {isEditingStatus ? (
+                        <select
+                          value={unit.status}
+                          onChange={(e) => {
+                            setIsEditingStatus(false);
+                            if (e.target.value !== unit.status) {
+                              handleUpdateUnit({ status: e.target.value === "Siap" ? "READY" : "BREAKDOWN" });
+                            }
+                          }}
+                          onBlur={() => setIsEditingStatus(false)}
+                          className="rounded-full bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-sky-500 px-3 py-1 outline-none text-sm font-semibold"
+                          autoFocus
+                        >
+                          <option value="Siap">Siap</option>
+                          <option value="Breakdown">Breakdown</option>
+                        </select>
+                      ) : (
+                        <Badge tone={unit.status === "Siap" ? "success" : "warning"}>
+                          {unit.status === "Siap" ? <FaCheckCircle className="mr-1" /> : <FaWrench className="mr-1" />}
+                          {unit.status}
+                        </Badge>
+                      )}
+                    </div>
+                    {unit.gpsVendor && (
+                      <Badge tone={getGpsStatusColor(unit.gpsStatus)}>
+                        {getGpsStatusIcon(unit.gpsStatus)}
+                        {unit.gpsStatus ? unit.gpsStatus.replace('ERROR_', '').replace(/_/g, ' ') : "GPS"}
                       </Badge>
                     )}
                   </div>
@@ -328,13 +368,13 @@ export default function UnitDetailPage() {
 
                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
                   <div className="rounded-2xl bg-white dark:bg-slate-900/70 p-4">
-                    <p className="text-xs text-slate-400 dark:text-slate-600 dark:text-slate-400">HM SAAT INI</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-600 dark:text-slate-400">HM</p>
                     <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">
                       <EditableText value={unit.hm} type="number" onSave={(val) => handleUpdateUnit({ hm: Number(val) })} />
                     </p>
                   </div>
                   <div className="rounded-2xl bg-white dark:bg-slate-900/70 p-4">
-                    <p className="text-xs text-slate-400 dark:text-slate-600 dark:text-slate-400">Hours</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-600 dark:text-slate-400">HOURS</p>
                     <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">
                       <EditableText value={unit.hours} type="number" onSave={(val) => handleUpdateUnit({ hours: Number(val) })} />
                     </p>

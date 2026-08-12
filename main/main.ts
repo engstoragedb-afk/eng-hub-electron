@@ -96,11 +96,9 @@ ipcMain.handle('install-update', () => {
 });
 
 if (isProd) {
-  app.on('ready', () => {
-    // Check for updates shortly after app is ready
-    setTimeout(() => {
-      autoUpdater.checkForUpdatesAndNotify();
-    }, 5000);
-  });
+  setTimeout(() => {
+    autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+      console.error('Failed to check for updates:', err);
+    });
+  }, 5000);
 }
-

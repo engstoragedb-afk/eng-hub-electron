@@ -6,6 +6,7 @@ import UnitCard from "@/components/molecules/UnitCard";
 import SectionHeading from "@/components/atoms/SectionHeading";
 
 import { unitService, locationService } from "@/services";
+import { EGPSStatus } from "@/common/utils/status";
 
 interface UnitType {
   id: string;
@@ -16,6 +17,8 @@ interface UnitType {
   hm: number;
   hours: number;
   location: string;
+  gpsVendor?: string;
+  gpsStatus?: string;
 }
 
 type UnitStatus = "Semua" | "Siap" | "Perbaikan";
@@ -35,6 +38,7 @@ export default function MaintenanceUnitList() {
   const [hmRange, setHmRange] = useState<(typeof hmRanges)[number]>("Semua");
   const [hoursRange, setHoursRange] = useState<(typeof hoursRanges)[number]>("Semua");
   const [status, setStatus] = useState<UnitStatus>("Semua");
+  const [gpsStatusFilter, setGpsStatusFilter] = useState("Semua");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 9;
 
@@ -58,7 +62,7 @@ export default function MaintenanceUnitList() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch, location, hmRange, hoursRange, status, category]);
+  }, [debouncedSearch, location, hmRange, hoursRange, status, category, gpsStatusFilter]);
 
   useEffect(() => {
     if (!id) return;
@@ -79,6 +83,7 @@ export default function MaintenanceUnitList() {
       search: debouncedSearch || undefined,
       status: apiStatus,
       location_id: location !== "Semua" ? location : undefined,
+      gps_status: gpsStatusFilter !== "Semua" ? gpsStatusFilter : undefined,
       hm_min, hm_max, hours_min, hours_max
     };
 
@@ -94,17 +99,27 @@ export default function MaintenanceUnitList() {
             hm: item.hm || 0,
             hours: item.hours || 0,
             location: item.location || "Site A",
+            gpsVendor: item.gps_vendor || item.gpsVendor,
+            gpsStatus: item.gps_status || item.gpsStatus,
           }));
           setUnits(formatted);
           setTotalRow(res.totalRow || 0);
         }
       })
       .catch((err) => console.error("Failed to fetch units:", err));
-  }, [id, category, currentPage, debouncedSearch, status, hmRange, hoursRange]);
+  }, [id, category, currentPage, debouncedSearch, status, location, gpsStatusFilter, hmRange, hoursRange]);
 
   const categoryName = typeof category === "string" ? category : "";
 
   const statusOptions = ["Semua", "Siap", "Perbaikan"];
+  const gpsStatusOptions = [
+    { label: "Semua", value: "Semua" },
+    { label: "Connected", value: EGPSStatus.CONNECTED },
+    { label: "Offline", value: EGPSStatus.OFFLINE },
+    { label: "Error Not Found", value: EGPSStatus.ERROR_NOT_FOUND },
+    { label: "Error Invalid Device", value: EGPSStatus.ERROR_INVALID_DEVICE },
+    { label: "Error Unavailable", value: EGPSStatus.ERROR_UNAVAILABLE },
+  ];
 
   const categoryImages: Record<string, string> = {
     EXCAVATOR: "/units/exavator.png",
@@ -142,10 +157,10 @@ export default function MaintenanceUnitList() {
             />
           </div>
 
-          <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-slate-200 dark:border-white/5 bg-white dark:bg-slate-900/60 p-4">
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex items-center gap-2">
-                <label htmlFor="searchInput" className="w-16 whitespace-nowrap text-xs text-slate-700 dark:text-slate-300">
+          <div className="mb-6 rounded-2xl border border-slate-200 dark:border-white/5 bg-white dark:bg-slate-900/60 p-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="searchInput" className="text-xs font-semibold text-slate-600 dark:text-slate-400">
                   Cari Unit
                 </label>
                 <input
@@ -154,18 +169,19 @@ export default function MaintenanceUnitList() {
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Cari kode, lokasi..."
-                  className="w-48 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-slate-900 dark:text-slate-100 outline-none placeholder:text-slate-500 dark:text-slate-400 transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                  className="w-full rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900/50 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500 transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
                 />
               </div>
-              <div className="flex items-center gap-2">
-                <label htmlFor="locationFilter" className="whitespace-nowrap text-xs text-slate-700 dark:text-slate-300">
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="locationFilter" className="text-xs font-semibold text-slate-600 dark:text-slate-400">
                   Lokasi
                 </label>
                 <select
                   id="locationFilter"
                   value={location}
                   onChange={(event) => setLocation(event.target.value)}
-                  className="w-32 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-slate-900 dark:text-slate-100 outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                  className="w-full rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900/50 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
                 >
                   <option value="Semua">Semua</option>
                   {locationOptions.map((option) => (
@@ -173,51 +189,67 @@ export default function MaintenanceUnitList() {
                   ))}
                 </select>
               </div>
-              <div className="flex items-center gap-2">
-                <label htmlFor="hmFilter" className="whitespace-nowrap text-xs text-slate-700 dark:text-slate-300">
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="hmFilter" className="text-xs font-semibold text-slate-600 dark:text-slate-400">
                   HM
                 </label>
                 <select
                   id="hmFilter"
                   value={hmRange}
                   onChange={(event) => setHmRange(event.target.value as (typeof hmRanges)[number])}
-                  className="w-32 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-slate-900 dark:text-slate-100 outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                  className="w-full rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900/50 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
                 >
                   {hmRanges.map((range) => (
                     <option key={range} value={range}>{range}</option>
                   ))}
                 </select>
               </div>
-              <div className="flex items-center gap-2">
-                <label htmlFor="hoursFilter" className="whitespace-nowrap text-xs text-slate-700 dark:text-slate-300">
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="hoursFilter" className="text-xs font-semibold text-slate-600 dark:text-slate-400">
                   Total Jam
                 </label>
                 <select
                   id="hoursFilter"
                   value={hoursRange}
                   onChange={(event) => setHoursRange(event.target.value as (typeof hoursRanges)[number])}
-                  className="w-32 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-slate-900 dark:text-slate-100 outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                  className="w-full rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900/50 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
                 >
                   {hoursRanges.map((range) => (
                     <option key={range} value={range}>{range}</option>
                   ))}
                 </select>
               </div>
-            </div>
 
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex items-center gap-2">
-                <label htmlFor="statusFilter" className="w-16 whitespace-nowrap text-xs text-slate-700 dark:text-slate-300">
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="statusFilter" className="text-xs font-semibold text-slate-600 dark:text-slate-400">
                   Status
                 </label>
                 <select
                   id="statusFilter"
                   value={status}
                   onChange={(event) => setStatus(event.target.value as UnitStatus)}
-                  className="w-32 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-slate-900 dark:text-slate-100 outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                  className="w-full rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900/50 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
                 >
                   {statusOptions.map((value) => (
                     <option key={value} value={value}>{value as string}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="gpsStatusFilter" className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                  Status GPS
+                </label>
+                <select
+                  id="gpsStatusFilter"
+                  value={gpsStatusFilter}
+                  onChange={(event) => setGpsStatusFilter(event.target.value)}
+                  className="w-full rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900/50 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                >
+                  {gpsStatusOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </select>
               </div>
@@ -234,6 +266,8 @@ export default function MaintenanceUnitList() {
                   status={item.status as any}
                   hm={item.hm}
                   hours={item.hours}
+                  gpsVendor={item.gpsVendor}
+                  gpsStatus={item.gpsStatus}
                   imageUrl={item.image || categoryImages[item.category]}
                   onClick={() => router.push(`/maintenance/detail-unit?code=${item.code}&id=${item.id}`)}
                 />

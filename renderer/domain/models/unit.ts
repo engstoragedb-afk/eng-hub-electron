@@ -14,6 +14,7 @@ export type IUnit = IEntity<{
     gps_vendor?: string | null;
     gps_device_id?: string | null;
     gps_portal?: string | null;
+    gps_status?: string | null;
     category?: any;
     aplData?: any[];
 }>;
@@ -32,6 +33,7 @@ export type IUnitCreate = IEntityCreate<{
     gps_vendor?: string | null;
     gps_device_id?: string | null;
     gps_portal?: string | null;
+    gps_status?: string | null;
     category?: any;
     aplData?: any[];
 }>;
@@ -58,6 +60,7 @@ export class Unit extends Entity<IUnit, IUnitCreate> {
     get gps_vendor(): string | null { return this._props.gps_vendor || null; }
     get gps_device_id(): string | null { return this._props.gps_device_id || null; }
     get gps_portal(): string | null { return this._props.gps_portal || null; }
+    get gps_status(): string | null { return this._props.gps_status || null; }
     get category(): any { return this._props.category; }
     get aplData(): any[] | undefined { return this._props.aplData; }
 
@@ -77,6 +80,7 @@ export class Unit extends Entity<IUnit, IUnitCreate> {
             gps_vendor: this.gps_vendor,
             gps_device_id: this.gps_device_id,
             gps_portal: this.gps_portal,
+            gps_status: this.gps_status,
             category: this.category,
             aplData: this.aplData,
         } as unknown as IEntity<IUnit>;

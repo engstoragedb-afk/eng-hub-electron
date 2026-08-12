@@ -18,6 +18,7 @@ export interface IUnitGetParams {
     hours_min?: number;
     hours_max?: number;
     type_id?: string;
+    gps_status?: string;
 }
 
 export interface IUnitRepository {

@@ -1,12 +1,17 @@
 import Badge from "@/components/atoms/Badge";
 
+import { FaCheckCircle, FaWrench, FaMapMarkerAlt, FaWifi, FaExclamationTriangle, FaEyeSlash } from "react-icons/fa";
+import { EGPSStatus } from "@/common/utils/status";
+
 type UnitCardProps = {
   code: string;
   category: string;
-  status: "Siap" | "Perbaikan";
+  status: "Siap" | "Perbaikan" | string;
   hm: number;
   hours: number;
   imageUrl?: string;
+  gpsVendor?: string | null;
+  gpsStatus?: string | null;
   onClick?: () => void;
 };
 
@@ -17,8 +22,39 @@ export default function UnitCard({
   hm,
   hours,
   imageUrl,
+  gpsVendor,
+  gpsStatus,
   onClick,
 }: UnitCardProps) {
+  const getGpsStatusColor = (status?: string | null) => {
+    switch (status) {
+      case EGPSStatus.CONNECTED:
+        return "success";
+      case EGPSStatus.OFFLINE:
+        return "neutral";
+      case EGPSStatus.ERROR_NOT_FOUND:
+      case EGPSStatus.ERROR_INVALID_DEVICE:
+      case EGPSStatus.ERROR_UNAVAILABLE:
+        return "warning";
+      default:
+        return "neutral";
+    }
+  };
+
+  const getGpsStatusIcon = (status?: string | null) => {
+    switch (status) {
+      case EGPSStatus.CONNECTED:
+        return <FaWifi />;
+      case EGPSStatus.OFFLINE:
+        return <FaEyeSlash />;
+      case EGPSStatus.ERROR_NOT_FOUND:
+      case EGPSStatus.ERROR_INVALID_DEVICE:
+      case EGPSStatus.ERROR_UNAVAILABLE:
+        return <FaExclamationTriangle />;
+      default:
+        return <FaMapMarkerAlt />;
+    }
+  };
   return (
     <button
       type="button"
@@ -47,9 +83,24 @@ export default function UnitCard({
                 {code}
               </div>
             </div>
-            <Badge tone={status === "Siap" ? "success" : "warning"}>
-              {status}
-            </Badge>
+            <div className="flex flex-col items-end gap-1.5 shrink-0">
+              <Badge 
+                tone={status === "Siap" ? "success" : "warning"}
+                title={status}
+                className="!px-2 h-6 w-6 justify-center"
+              >
+                {status === "Siap" ? <FaCheckCircle /> : <FaWrench />}
+              </Badge>
+              {gpsVendor && (
+                <Badge 
+                  tone={getGpsStatusColor(gpsStatus)}
+                  title={gpsStatus ? gpsStatus.replace('ERROR_', '').replace(/_/g, ' ') : "GPS TERSEDIA"}
+                  className="!px-2 h-6 w-6 justify-center"
+                >
+                  {getGpsStatusIcon(gpsStatus)}
+                </Badge>
+              )}
+            </div>
           </div>
           <div className="mt-4 space-y-2 text-sm text-slate-700 dark:text-slate-300">
             <div className="flex items-center justify-between">

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-type BadgeProps = {
+type BadgeProps = React.HTMLAttributes<HTMLSpanElement> & {
   children: ReactNode;
   tone?: "success" | "warning" | "info" | "neutral";
 };
@@ -12,10 +12,11 @@ const toneClasses: Record<NonNullable<BadgeProps["tone"]>, string> = {
   neutral: "bg-slate-200 dark:bg-slate-700/70 text-slate-900 dark:text-slate-100",
 };
 
-export default function Badge({ children, tone = "neutral" }: BadgeProps) {
+export default function Badge({ children, tone = "neutral", className = "", ...props }: BadgeProps) {
   return (
     <span
-      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${toneClasses[tone]}`}
+      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${toneClasses[tone]} ${className}`}
+      {...props}
     >
       {children}
     </span>
