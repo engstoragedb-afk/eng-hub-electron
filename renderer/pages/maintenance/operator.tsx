@@ -5,6 +5,7 @@ import { FaMagnifyingGlass, FaXmark, FaPenToSquare, FaPlus } from "react-icons/f
 import toast from "react-hot-toast";
 import { userService, unitService, locationService, operatorService } from "@/services";
 import { EROLES } from "@/common/utils/roles";
+import router from "next/router";
 
 // Helper to get initials
 function getInitials(name: string) {
@@ -37,7 +38,8 @@ export default function MaintenanceOperatorPage() {
         id: user.id,
         name: user.full_name,
         status: user.is_active ? "Aktif" : "Nonaktif",
-        unit: user.unit?.name || "-",
+        category: user.unit?.category,
+        unit: user.unit,
         location: user.location?.name || "-",
         image: user.image,
         raw: user
@@ -111,23 +113,23 @@ export default function MaintenanceOperatorPage() {
     setIsAddOperatorModalOpen(true);
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
-      if (!allowedTypes.includes(file.type)) {
-        toast.error("Hanya file dengan ekstensi JPEG, JPG, dan PNG yang diperbolehkan.");
-        e.target.value = "";
-        return;
-      }
+  // const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   const file = e.target.files?.[0];
+  //   if (file) {
+  //     const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
+  //     if (!allowedTypes.includes(file.type)) {
+  //       toast.error("Hanya file dengan ekstensi JPEG, JPG, dan PNG yang diperbolehkan.");
+  //       e.target.value = "";
+  //       return;
+  //     }
 
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setNewOperator(prev => ({ ...prev, image: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
-    }
-  };
+  //     const reader = new FileReader();
+  //     reader.onloadend = () => {
+  //       setNewOperator(prev => ({ ...prev, image: reader.result as string }));
+  //     };
+  //     reader.readAsDataURL(file);
+  //   }
+  // };
 
   const handleSubmitAddOperator = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -167,7 +169,7 @@ export default function MaintenanceOperatorPage() {
 
   const handleOpenAssign = (operator: any) => {
     setSelectedUser(operator);
-    setAssignUnit(operator.unit !== "-" ? operator.unit : "");
+    setAssignUnit(operator.unit?.name || "");
     setAssignLocation(operator.location !== "-" ? operator.location : "Site A");
     setIsAssignModalOpen(true);
   };
@@ -204,7 +206,7 @@ export default function MaintenanceOperatorPage() {
         if (op.id === selectedUser.id) {
           return {
             ...op,
-            unit: selectedUnitObj.name,
+            unit: selectedUnitObj,
             location: selectedLocationObj.name || selectedLocationObj.id,
             raw: {
               ...op.raw,
@@ -237,7 +239,7 @@ export default function MaintenanceOperatorPage() {
         if (op.id === operator.id) {
           return {
             ...op,
-            unit: "-",
+            unit: null,
             location: "-",
             raw: {
               ...op.raw,
@@ -312,13 +314,14 @@ export default function MaintenanceOperatorPage() {
               {filteredOperators.map((item) => (
                 <div
                   key={item.id}
+                  onClick={() => router.push(`/maintenance/detail-unit?id=${item.raw.unit.id}`)}
                   className="flex flex-col rounded-3xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900/70 p-5 transition hover:border-amber-400/60 hover:bg-slate-100 dark:hover:bg-slate-800"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-4">
                       <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-slate-950">
-                        {item.image ? (
-                          <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
+                        {item?.unit?.image || item?.category?.image ? (
+                          <img src={item?.unit?.image || item?.category?.image} alt={item.name} className="h-full w-full object-cover" />
                         ) : (
                           <span className="text-xl font-bold text-sky-400">
                             {getInitials(item.name)}
@@ -334,17 +337,17 @@ export default function MaintenanceOperatorPage() {
                   <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-200 dark:border-white/5 pt-4">
                     <div>
                       <p className="text-xs text-slate-400 dark:text-slate-600 dark:text-slate-400">Unit Assignment</p>
-                      {item.unit === "-" || !item.raw?.unit?.id ? (
+                      {!item.unit || !item.unit.id ? (
                         <p className="font-medium text-slate-500 dark:text-slate-400">
                           -
                         </p>
                       ) : (
                         <Link
-                          href={`/maintenance/detail-unit?id=${item.raw.unit.id}`}
+                          href={`/maintenance/detail-unit?id=${item.unit.id}`}
                           className="font-medium text-amber-500 hover:text-amber-600 hover:underline dark:text-amber-400 dark:hover:text-amber-300"
                           prefetch={false}
                         >
-                          {item.unit}
+                          {item.unit.name}
                         </Link>
                       )}
                     </div>
@@ -361,21 +364,29 @@ export default function MaintenanceOperatorPage() {
                   </div>
 
                   <div className="mt-5 grid grid-cols-2 gap-3">
-                    {item.unit !== "-" && item.raw?.unit?.id ? (
+                    {item.unit && item.unit.id ? (
                       <button
-                        onClick={() => handleUnassign(item)}
-                        className="flex items-center justify-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 dark:bg-rose-500/10 px-4 py-2 text-sm font-semibold text-rose-600 dark:text-rose-400 transition hover:bg-rose-500 hover:text-white dark:hover:bg-rose-600 dark:hover:text-white"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleUnassign(item);
+                        }}
+                        className="flex items-center justify-center gap-2 rounded-xl bg-rose-50 px-4 py-2.5 text-sm font-bold text-rose-600 transition-all duration-200 hover:bg-rose-100 active:scale-95 dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/20"
                       >
                         <FaXmark /> Lepas Tugas
                       </button>
                     ) : null}
                     <button
-                      onClick={() => handleOpenAssign(item)}
-                      className={`flex items-center justify-center gap-2 rounded-xl bg-slate-200/50 dark:bg-white/5 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300 transition hover:bg-amber-500/20 hover:text-amber-600 dark:hover:text-amber-300 ${
-                        item.unit !== "-" && item.raw?.unit?.id ? "" : "col-span-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenAssign(item);
+                      }}
+                      className={`flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all duration-200 active:scale-95 ${
+                        item.unit && item.unit.id 
+                          ? "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700" 
+                          : "col-span-2 bg-sky-500 text-white shadow-md shadow-sky-500/20 hover:bg-sky-600 hover:shadow-sky-500/40"
                       }`}
                     >
-                      <FaPenToSquare /> Atur Penugasan
+                      <FaPenToSquare /> {item.unit && item.unit.id ? "Ubah Tugas" : "Atur Penugasan"}
                     </button>
                   </div>
                 </div>
@@ -496,7 +507,11 @@ export default function MaintenanceOperatorPage() {
                   type="text"
                   required
                   value={newOperator.name}
-                  onChange={e => setNewOperator({ ...newOperator, name: e.target.value })}
+                  onChange={e => {
+                    const name = e.target.value;
+                    const email = name ? `${name.toLowerCase().replaceAll(' ', '')}@example.com` : '';
+                    setNewOperator({ ...newOperator, name, email });
+                  }}
                   className="w-full rounded-xl border border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-slate-950 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-sky-500"
                   placeholder="Masukkan nama..."
                 />
@@ -531,20 +546,6 @@ export default function MaintenanceOperatorPage() {
                   className="w-full rounded-xl border border-slate-300 dark:border-white/10 bg-slate-200/50 dark:bg-slate-800 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 outline-none"
                 />
                 <p className="mt-1 text-[10px] text-amber-500">*Password digenerate secara otomatis</p>
-              </div>
-              <div>
-                <label className="mb-1 block text-xs text-slate-500 dark:text-slate-400">Foto Profil (Opsional)</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="block w-full text-sm text-slate-500 dark:text-slate-400 file:mr-4 file:rounded-xl file:border-0 file:bg-sky-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-sky-600 hover:file:bg-sky-100 dark:file:bg-sky-500/10 dark:file:text-sky-500 dark:hover:file:bg-sky-500/20"
-                />
-                {newOperator.image && (
-                  <div className="mt-2 h-16 w-16 overflow-hidden rounded-full border border-slate-300 dark:border-white/10">
-                    <img src={newOperator.image} alt="Preview" className="h-full w-full object-cover" />
-                  </div>
-                )}
               </div>
               <div className="pt-2">
                 <button

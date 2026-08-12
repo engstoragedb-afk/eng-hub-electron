@@ -1,13 +1,21 @@
+import { useRouter } from "next/router";
 import { FaTruck, FaList, FaUserCog, FaWrench } from "react-icons/fa";
 import { dashboardService } from "@/services";
 
 import MaintenanceLayout from "@/components/organisms/MaintenanceLayout";
 import StatCard from "@/components/molecules/StatCard";
 import SectionHeading from "@/components/atoms/SectionHeading";
-import {
-  TrenPerbaikanChart,
-  KomposisiUnitChart,
-} from "../../components/organisms/MaintenanceCharts";
+import dynamic from 'next/dynamic';
+
+const TrenPerbaikanChart = dynamic(() => import("../../components/organisms/MaintenanceCharts").then(mod => mod.TrenPerbaikanChart), {
+  ssr: false,
+  loading: () => <div className="w-full h-full min-h-[250px] animate-pulse bg-slate-200 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-400">Memuat Grafik...</div>
+});
+
+const KomposisiUnitChart = dynamic(() => import("../../components/organisms/MaintenanceCharts").then(mod => mod.KomposisiUnitChart), {
+  ssr: false,
+  loading: () => <div className="w-full h-full min-h-[250px] animate-pulse bg-slate-200 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-400">Memuat Grafik...</div>
+});
 import React, { useState, useEffect } from "react";
 import { auditLogService } from "@/services/audit-log-service";
 import { ACTIONS } from "@/common/utils/action";
@@ -20,6 +28,7 @@ const iconMapping = {
 };
 
 export default function MaintenanceDashboard() {
+  const router = useRouter();
   const [chartFilter, setChartFilter] = useState<any>("5 minggu");
   const [stats, setStats] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
@@ -98,7 +107,11 @@ export default function MaintenanceDashboard() {
                 const newData = JSON.parse(log.new_data || "{}");
                 const isCritical = newData.level === "CRITICAL";
                 return (
-                  <div key={log.id} className="flex items-center justify-between rounded-2xl bg-white dark:bg-slate-900/60 px-4 py-4">
+                  <div 
+                    key={log.id} 
+                    onClick={() => oldData.unit_id && router.push(`/maintenance/detail-unit?id=${oldData.unit_id}`)}
+                    className="flex items-center justify-between rounded-2xl bg-white dark:bg-slate-900/60 px-4 py-4 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+                  >
                     <span>{oldData.unit_name} • {oldData.name}</span>
                     <span className={`font-semibold ${isCritical ? 'text-rose-400' : 'text-amber-400'}`}>
                       {isCritical ? 'Critical' : 'Warning'} • Sisa {newData.input} jam

@@ -8,26 +8,13 @@ import Badge from "@/components/atoms/Badge";
 import SectionHeading from "@/components/atoms/SectionHeading";
 import EditableText from "@/components/atoms/EditableText";
 import CopyButton from "@/components/atoms/CopyButton";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-} from 'chart.js';
-import { Bar } from 'react-chartjs-2';
+import dynamic from 'next/dynamic';
 import { unitService, aplUnitService, typeUnitService } from "@/services";
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend
-);
+const DetailUnitChart = dynamic(() => import("@/components/organisms/DetailUnitChart"), { 
+  ssr: false, 
+  loading: () => <div className="w-full h-full min-h-[200px] animate-pulse bg-slate-200 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-400">Memuat Grafik...</div> 
+});
 
 const categoryImages: Record<string, string> = {
   EXCAVATOR: "/units/exavator.png",
@@ -45,11 +32,20 @@ export default function UnitDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [editingAplItem, setEditingAplItem] = useState<{category_apl_id: string, name: string, total: number, vault?: number, input: number, schedule: number} | null>(null);
   const [isChartModalOpen, setIsChartModalOpen] = useState(false);
+  const [isChartVisible, setIsChartVisible] = useState(false);
   const [isEditingStatus, setIsEditingStatus] = useState(false);
   const [isSavingApl, setIsSavingApl] = useState(false);
   const [typeUnits, setTypeUnits] = useState<any[]>([]);
   const [isEditingType, setIsEditingType] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  useEffect(() => {
+    if (isChartModalOpen) {
+      const timer = setTimeout(() => setIsChartVisible(true), 150);
+      return () => clearTimeout(timer);
+    } else {
+      setIsChartVisible(false);
+    }
+  }, [isChartModalOpen]);
 
   useEffect(() => {
     typeUnitService.getTypeUnits()
@@ -140,7 +136,8 @@ export default function UnitDetailPage() {
     );
   }
 
-  const sortedAplData = unit.aplData ? [...unit.aplData].sort((a, b) => (a.input || 0) - (b.input || 0)) : [];
+  // const sortedAplData = unit.aplData ? [...unit.aplData].sort((a, b) => (a.input || 0) - (b.input || 0)) : [];
+  const sortedAplData = unit.aplData;
 
   const chartData = {
     labels: sortedAplData.map((item: any) => (!item.total || item.total === 0) ? `${item.name} *` : item.name),
@@ -172,12 +169,21 @@ export default function UnitDetailPage() {
         setIsChartModalOpen(false);
       }
     },
+    layout: {
+      padding: {
+        left: 20,
+        right: 30
+      }
+    },
     plugins: {
       legend: { display: false },
       tooltip: {
         callbacks: {
           label: (context: any) => `${context.parsed.x} Jam`,
         },
+      },
+      datalabels: {
+        display: false,
       },
     },
     interaction: {
@@ -200,6 +206,18 @@ export default function UnitDetailPage() {
           color: '#94a3b8',
           font: { size: 11, weight: 'bold' as const },
         },
+      },
+      y2: {
+        position: 'right' as const,
+        grid: { display: false },
+        ticks: {
+          color: '#94a3b8',
+          font: { size: 11, weight: 'bold' as const },
+          callback: function(value: any, index: number) {
+            const dataValue = sortedAplData[index].input || 0;
+            return `${dataValue}`;
+          }
+        }
       },
     },
   };
@@ -319,7 +337,7 @@ export default function UnitDetailPage() {
               </div>
               <div className="mt-4">
                 <div className="w-full relative" style={{ height: `${sortedAplData.length * 45 + 60}px` }}>
-                  <Bar data={chartData} options={chartOptions} />
+                  <DetailUnitChart chartData={chartData} chartOptions={chartOptions} />
                 </div>
               </div>
             </div>
@@ -581,9 +599,18 @@ export default function UnitDetailPage() {
               </button>
             </div>
             <div className="flex-1 w-full overflow-y-auto pr-2">
-               <div style={{ height: `${Math.max(600, sortedAplData.length * 50 + 60)}px`, minHeight: '100%' }}>
-                  <Bar data={chartData} options={{ ...chartOptions, maintainAspectRatio: false }} />
-               </div>
+               {isChartVisible ? (
+                 <div style={{ height: `${Math.max(600, sortedAplData.length * 50 + 60)}px`, minHeight: '100%' }}>
+                    <DetailUnitChart chartData={chartData} chartOptions={{ ...chartOptions, maintainAspectRatio: false }} />
+                 </div>
+               ) : (
+                 <div className="w-full h-full flex items-center justify-center text-slate-400">
+                   <div className="flex flex-col items-center gap-4">
+                     <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-sky-500 dark:border-white/10 dark:border-t-sky-500" />
+                     <p className="text-sm font-medium">Mempersiapkan Grafik...</p>
+                   </div>
+                 </div>
+               )}
             </div>
           </div>
         </div>

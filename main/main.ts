@@ -1,5 +1,5 @@
 import path from 'path'
-import { app, ipcMain } from 'electron'
+import { app, ipcMain, dialog } from 'electron'
 import pkg from 'electron-updater'
 const { autoUpdater } = pkg;
 import serve from 'electron-serve'
@@ -25,10 +25,29 @@ app.disableHardwareAcceleration()
   const mainWindow = createWindow('main', {
     width: 1000,
     height: 600,
+    fullscreen: true,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(import.meta.dirname, 'preload.js'),
     },
     icon: isProd ? undefined : path.join(import.meta.dirname, '../renderer/public/images/icon.png'),
+  })
+
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'Escape' && input.type === 'keyDown') {
+      const response = dialog.showMessageBoxSync(mainWindow, {
+        type: 'question',
+        buttons: ['Batal', 'Keluar'],
+        defaultId: 0,
+        cancelId: 0,
+        title: 'Konfirmasi Keluar',
+        message: 'Apakah Anda yakin ingin keluar dari aplikasi?'
+      })
+      if (response === 1) {
+        app.quit()
+      }
+      event.preventDefault()
+    }
   })
 
   if (isProd) {
