@@ -112,7 +112,8 @@ export default function MaintenanceUnitList() {
   }, [search]);
 
   const STORAGE_KEY = `unit_filters_${category}`;
-  const isRestoringRef = useRef(false);
+  const isRestoringRef = useRef(true);
+  const [isRestored, setIsRestored] = useState(false);
 
   // Restore filters
   useEffect(() => {
@@ -122,27 +123,32 @@ export default function MaintenanceUnitList() {
       try {
         const parsed = JSON.parse(stored);
         isRestoringRef.current = true;
-        if (parsed.search !== undefined) setSearch(parsed.search);
+        if (parsed.search !== undefined) {
+          setSearch(parsed.search);
+          setDebouncedSearch(parsed.search);
+        }
         if (parsed.location !== undefined) setLocation(parsed.location);
         if (parsed.hmRange !== undefined) setHmRange(parsed.hmRange);
         if (parsed.hoursRange !== undefined) setHoursRange(parsed.hoursRange);
         if (parsed.status !== undefined) setStatus(parsed.status);
         if (parsed.gpsStatusFilter !== undefined) setGpsStatusFilter(parsed.gpsStatusFilter);
         if (parsed.currentPage !== undefined) setCurrentPage(parsed.currentPage);
-        
-        setTimeout(() => {
-          isRestoringRef.current = false;
-        }, 100);
       } catch (e) {}
     }
+    
+    // Wait a bit for state to settle before fetching
+    setTimeout(() => {
+      isRestoringRef.current = false;
+      setIsRestored(true);
+    }, 50);
   }, [category]);
 
   // Save filters
   useEffect(() => {
-    if (!category || isRestoringRef.current) return;
+    if (!category || isRestoringRef.current || !isRestored) return;
     const filters = { search, location, hmRange, hoursRange, status, gpsStatusFilter, currentPage };
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
-  }, [search, location, hmRange, hoursRange, status, gpsStatusFilter, currentPage, category]);
+  }, [search, location, hmRange, hoursRange, status, gpsStatusFilter, currentPage, category, isRestored]);
 
   useEffect(() => {
     if (isRestoringRef.current) return;
@@ -150,7 +156,7 @@ export default function MaintenanceUnitList() {
   }, [debouncedSearch, location, hmRange, hoursRange, status, category, gpsStatusFilter]);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || !isRestored) return;
 
     let hm_min, hm_max, hours_min, hours_max;
     if (hmRange !== "Semua") {
@@ -192,7 +198,7 @@ export default function MaintenanceUnitList() {
         }
       })
       .catch((err) => console.error("Failed to fetch units:", err));
-  }, [id, category, currentPage, debouncedSearch, status, location, gpsStatusFilter, hmRange, hoursRange, refreshKey]);
+  }, [id, category, currentPage, debouncedSearch, status, location, gpsStatusFilter, hmRange, hoursRange, refreshKey, isRestored]);
 
   const categoryName = typeof category === "string" ? category : "";
 
