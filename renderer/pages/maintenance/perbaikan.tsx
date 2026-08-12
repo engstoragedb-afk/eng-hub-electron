@@ -21,6 +21,12 @@ export default function MaintenanceBreakdownPage() {
   const [statusFilter, setStatusFilter] = useState("Semua");
   const [locationFilter, setLocationFilter] = useState("Semua");
   const [localRepairs, setLocalRepairs] = useState(repairs);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, categoryFilter, statusFilter, locationFilter]);
 
   const handleSaveRepair = (data: any) => {
     // Basic mock save
@@ -51,6 +57,23 @@ export default function MaintenanceBreakdownPage() {
       locationFilter === "Semua" || repair.location === locationFilter;
     return matchSearch && matchCategory && matchStatus && matchLocation;
   });
+
+  const totalPages = Math.ceil(filteredRepairs.length / itemsPerPage) || 1;
+  const paginatedRepairs = filteredRepairs.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const getVisiblePages = () => {
+    const maxVisible = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let endPage = startPage + maxVisible - 1;
+    if (endPage > totalPages) {
+      endPage = totalPages;
+      startPage = Math.max(1, endPage - maxVisible + 1);
+    }
+    return Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
+  };
 
   return (
     <React.Fragment>
@@ -122,10 +145,10 @@ export default function MaintenanceBreakdownPage() {
         </div>
 
         <div className="space-y-4">
-          {filteredRepairs.map((repair) => (
+          {paginatedRepairs.map((repair) => (
             <Link
               key={repair.code}
-              href={`/maintenance/perbaikan/${repair.code}`}
+              href={`/maintenance/detail-perbaikan?id=${repair.code}`}
               className="block rounded-3xl border border-slate-200 dark:border-white/5 bg-white dark:bg-slate-900/50 p-5 transition hover:border-amber-500/30 hover:bg-slate-50 dark:hover:bg-slate-900 group"
             >
               <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
@@ -203,12 +226,46 @@ export default function MaintenanceBreakdownPage() {
               </div>
             </Link>
           ))}
-          {filteredRepairs.length === 0 && (
+          {paginatedRepairs.length === 0 && (
             <div className="py-10 text-center text-slate-400 dark:text-slate-600 dark:text-slate-400">
               Tidak ada perbaikan yang sesuai dengan filter.
             </div>
           )}
         </div>
+
+        {totalPages > 1 && (
+          <div className="mt-8 flex justify-center items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-4 py-2 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-white/5 transition"
+            >
+              Sebelumnya
+            </button>
+            <div className="flex gap-1 overflow-x-auto max-w-full pb-2 sm:pb-0 px-2">
+              {getVisiblePages().map((page) => (
+                <button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-semibold transition ${
+                    currentPage === page
+                      ? "bg-sky-500 text-white shadow-md shadow-sky-500/30"
+                      : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-sky-50 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-4 py-2 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-white/5 transition"
+            >
+              Selanjutnya
+            </button>
+          </div>
+        )}
       </MaintenanceLayout>
 
       <AddRepairModal

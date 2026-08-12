@@ -19,6 +19,7 @@ const KomposisiUnitChart = dynamic(() => import("../../components/organisms/Main
 import React, { useState, useEffect } from "react";
 import { auditLogService } from "@/services/audit-log-service";
 import { ACTIONS } from "@/common/utils/action";
+import Link from "next/link";
 
 const iconMapping = {
   truck: <FaTruck />,
@@ -92,10 +93,18 @@ export default function MaintenanceDashboard() {
           </div>
 
           <div className="rounded-3xl border border-slate-300 dark:border-white/10 bg-slate-200/50 dark:bg-white/5 p-5">
-            <SectionHeading
-              title="Peringatan Servis"
-              description="Notifikasi sparepart dan jadwal"
-            />
+            <div className="flex items-center justify-between">
+              <SectionHeading
+                title="Peringatan Servis"
+                description="Notifikasi sparepart dan jadwal"
+              />
+              <Link 
+                href="/maintenance/peringatan" 
+                className="-mt-5 text-sm font-semibold text-sky-500 hover:text-sky-600 transition"
+              >
+                Lihat Semua
+              </Link>
+            </div>
             <div className="mt-4 space-y-3 text-sm text-slate-700 dark:text-slate-300">
               {auditLogs.length === 0 && (
                 <div className="rounded-2xl bg-white dark:bg-slate-900/60 px-4 py-4 text-center text-slate-400 dark:text-slate-500">
@@ -110,10 +119,17 @@ export default function MaintenanceDashboard() {
                   <div 
                     key={log.id} 
                     onClick={() => oldData.unit_id && router.push(`/maintenance/detail-unit?id=${oldData.unit_id}`)}
-                    className="flex items-center justify-between rounded-2xl bg-white dark:bg-slate-900/60 px-4 py-4 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+                    className="flex items-center justify-between rounded-2xl bg-white dark:bg-slate-900/60 px-4 py-4 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition border border-transparent hover:border-slate-200 dark:hover:border-white/5"
                   >
-                    <span>{oldData.unit_name} • {oldData.name}</span>
-                    <span className={`font-semibold ${isCritical ? 'text-rose-400' : 'text-amber-400'}`}>
+                    <div className="flex items-center gap-3">
+                      <span className="rounded-lg bg-sky-100 dark:bg-sky-500/20 px-2.5 py-1 text-xs font-bold tracking-wide text-sky-600 dark:text-sky-400">
+                        {oldData.unit_name}
+                      </span>
+                      <span className="font-medium text-slate-700 dark:text-slate-200">
+                        {oldData.name}
+                      </span>
+                    </div>
+                    <span className={`text-sm font-bold ${isCritical ? 'text-rose-500 dark:text-rose-400' : 'text-amber-500 dark:text-amber-400'}`}>
                       {isCritical ? 'Critical' : 'Warning'} • Sisa {newData.input} jam
                     </span>
                   </div>

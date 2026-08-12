@@ -14,6 +14,10 @@ class AuditLogService implements IAuditLogService {
     async getLatestLogs(limit?: number, action?: string): Promise<IAuditLog[]> {
         return this.repository.getLatest(limit, action);
     }
+
+    async getAllLogs(params?: { page?: number; limit?: number; search?: string; action?: string }): Promise<{ data: IAuditLog[]; totalRow: number; page: number; limit: number }> {
+        return this.repository.getAll(params);
+    }
 }
 
 export const auditLogService = new AuditLogService(new AuditLogRepository(restApi));

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
-import { FaArrowLeft, FaExpandAlt, FaTimes } from "react-icons/fa";
+import { FaArrowLeft, FaExpandAlt, FaTimes, FaSearchPlus, FaCrop, FaImage } from "react-icons/fa";
 import toast from "react-hot-toast";
 
 import MaintenanceLayout from "@/components/organisms/MaintenanceLayout";
@@ -8,6 +8,8 @@ import Badge from "@/components/atoms/Badge";
 import SectionHeading from "@/components/atoms/SectionHeading";
 import EditableText from "@/components/atoms/EditableText";
 import CopyButton from "@/components/atoms/CopyButton";
+import Lightbox from "@/components/organisms/Lightbox";
+import ImageCropModal from "@/components/organisms/ImageCropModal";
 import dynamic from 'next/dynamic';
 import { unitService, aplUnitService, typeUnitService } from "@/services";
 
@@ -38,6 +40,9 @@ export default function UnitDetailPage() {
   const [typeUnits, setTypeUnits] = useState<any[]>([]);
   const [isEditingType, setIsEditingType] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (isChartModalOpen) {
@@ -137,8 +142,7 @@ export default function UnitDetailPage() {
     );
   }
 
-  // const sortedAplData = unit.aplData ? [...unit.aplData].sort((a, b) => (a.input || 0) - (b.input || 0)) : [];
-  const sortedAplData = unit.aplData;
+  const sortedAplData = unit.aplData || [];
 
   const chartData = {
     labels: sortedAplData.map((item: any) => (!item.total || item.total === 0) ? `${item.name} *` : item.name),
@@ -234,12 +238,12 @@ export default function UnitDetailPage() {
         <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
           <div className="rounded-3xl border border-slate-300 dark:border-white/10 bg-slate-200/50 dark:bg-white/5 p-6">
             <div className="flex items-start gap-5">
-              <div className="relative group">
-                <div className="flex h-52 w-64 items-center justify-center overflow-hidden rounded-2xl bg-slate-50 dark:bg-slate-950/70 p-3">
+              <div className="relative group overflow-hidden rounded-2xl h-52 w-64 bg-slate-50 dark:bg-slate-950/70 p-3">
+                <div className="flex h-full w-full items-center justify-center">
                   {isUploadingImage ? (
                     <div className="flex flex-col items-center justify-center gap-2">
                       <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-sky-500 dark:border-white/10 dark:border-t-sky-500" />
-                      <span className="text-xs text-slate-500 dark:text-slate-400">Mengunggah...</span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">Memproses...</span>
                     </div>
                   ) : (
                     <img
@@ -249,13 +253,32 @@ export default function UnitDetailPage() {
                     />
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="absolute inset-0 hidden items-center justify-center rounded-2xl bg-slate-50 dark:bg-slate-950/75 text-slate-900 dark:text-slate-100 transition-opacity duration-200 group-hover:flex"
-                >
-                  Ganti gambar
-                </button>
+                
+                {!isUploadingImage && (
+                  <div className="absolute inset-0 hidden flex-col items-center justify-center gap-2 bg-slate-900/80 transition-opacity duration-200 group-hover:flex backdrop-blur-sm">
+                    <button
+                      type="button"
+                      onClick={() => setIsLightboxOpen(true)}
+                      className="flex w-32 items-center justify-start pl-4 gap-3 rounded-xl bg-white/10 py-2.5 text-sm font-semibold text-white transition hover:bg-white/20"
+                    >
+                      <FaSearchPlus /> Preview
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsCropModalOpen(true)}
+                      className="flex w-32 items-center justify-start pl-4 gap-3 rounded-xl bg-white/10 py-2.5 text-sm font-semibold text-white transition hover:bg-white/20"
+                    >
+                      <FaCrop /> Crop
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex w-32 items-center justify-start pl-4 gap-3 rounded-xl bg-sky-500 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-600 shadow-lg shadow-sky-500/20"
+                    >
+                      <FaImage /> Ganti
+                    </button>
+                  </div>
+                )}
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -616,6 +639,30 @@ export default function UnitDetailPage() {
           </div>
         </div>
       )}
+
+      <Lightbox
+        isOpen={isLightboxOpen}
+        onClose={() => setIsLightboxOpen(false)}
+        imageSrc={unit?.imageUrl || (unit?.category?.name ? categoryImages[unit.category.name] : "")}
+        title={unit?.code || "Preview Gambar"}
+        description={`Gambar detail untuk unit ${unit?.code || ""}`}
+      />
+
+      <ImageCropModal
+        isOpen={isCropModalOpen}
+        onClose={() => setIsCropModalOpen(false)}
+        imageSrc={unit?.imageUrl || (unit?.category?.name ? categoryImages[unit.category.name] : "")}
+        title={`Crop Gambar ${unit?.code || ""}`}
+        onSave={(previewUrl, blob) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const base64String = reader.result as string;
+            handleUpdateUnit({ image: base64String });
+            toast.success("Gambar hasil crop berhasil disimpan");
+          };
+          reader.readAsDataURL(blob);
+        }}
+      />
     </React.Fragment>
   );
 }

@@ -10,4 +10,19 @@ export class AuditLogRepository implements IAuditLogRepository {
         const resData = data.data || data;
         return resData.map((item: any) => AuditLog.create(item).unmarshall());
     }
+
+    async getAll(params?: { page?: number; limit?: number; search?: string; action?: string }): Promise<{ data: IAuditLog[]; totalRow: number; page: number; limit: number }> {
+        const { data } = await this.restApi.axios.get('/audit-logs', { params });
+        const resData = data.data?.data || data.data || [];
+        const totalRow = data.data?.totalRow || 0;
+        const page = data.data?.page || params?.page || 1;
+        const limit = data.data?.limit || params?.limit || 10;
+        
+        return {
+            data: resData.map((item: any) => AuditLog.create(item).unmarshall()),
+            totalRow,
+            page,
+            limit
+        };
+    }
 }

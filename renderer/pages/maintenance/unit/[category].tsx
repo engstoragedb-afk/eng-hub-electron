@@ -36,7 +36,7 @@ export default function MaintenanceUnitList() {
   const [hoursRange, setHoursRange] = useState<(typeof hoursRanges)[number]>("Semua");
   const [status, setStatus] = useState<UnitStatus>("Semua");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 15;
+  const itemsPerPage = 9;
 
   const [locationOptions, setLocationOptions] = useState<{ id: string; name: string }[]>([]);
 
@@ -116,6 +116,17 @@ export default function MaintenanceUnitList() {
 
   const totalPages = Math.ceil(totalRow / itemsPerPage) || 1;
   const paginatedUnits = units;
+
+  const getVisiblePages = () => {
+    const maxVisible = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let endPage = startPage + maxVisible - 1;
+    if (endPage > totalPages) {
+      endPage = totalPages;
+      startPage = Math.max(1, endPage - maxVisible + 1);
+    }
+    return Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
+  };
 
   return (
     <React.Fragment>
@@ -244,7 +255,7 @@ export default function MaintenanceUnitList() {
                 Sebelumnya
               </button>
               <div className="flex gap-1 overflow-x-auto max-w-full pb-2 sm:pb-0">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                {getVisiblePages().map((page) => (
                   <button
                     key={page}
                     onClick={() => setCurrentPage(page)}

@@ -84,13 +84,13 @@ export default function TopBar() {
           )}
         </button>
       )}
-      <button className="h-10 w-10 overflow-hidden rounded-full border-2 border-sky-500/50 transition hover:border-sky-400 cursor-pointer">
+      {/* <button className="h-10 w-10 overflow-hidden rounded-full border-2 border-sky-500/50 transition hover:border-sky-400 cursor-pointer">
         <img
           src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&backgroundColor=0284c7"
           alt="Profile Avatar"
           className="h-full w-full object-cover"
         />
-      </button>
+      </button> */}
     </header>
   );
 }
