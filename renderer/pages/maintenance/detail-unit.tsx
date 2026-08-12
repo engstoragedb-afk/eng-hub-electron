@@ -39,12 +39,13 @@ export default function UnitDetailPage() {
   const [isEditingType, setIsEditingType] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   useEffect(() => {
+    let timer: NodeJS.Timeout;
     if (isChartModalOpen) {
-      const timer = setTimeout(() => setIsChartVisible(true), 150);
-      return () => clearTimeout(timer);
+      timer = setTimeout(() => setIsChartVisible(true), 150);
     } else {
       setIsChartVisible(false);
     }
+    return () => clearTimeout(timer);
   }, [isChartModalOpen]);
 
   useEffect(() => {

@@ -1,14 +1,13 @@
-import { FaBell, FaExpand, FaSun, FaMoon, FaDownload, FaSync } from "react-icons/fa";
+import { FaExpand, FaSun, FaMoon, FaDownload, FaSync } from "react-icons/fa";
 import { useUIStore } from "@/store/uiStore";
-import Link from "next/link";
-import { useRouter } from "next/router";
+// import { useRouter } from "next/router";
 import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
 
 export default function TopBar() {
   const { setFullscreen } = useUIStore();
-  const router = useRouter();
-  const basePath = router.pathname.startsWith("/admin") ? "/admin" : "/maintenance";
+  // const router = useRouter();
+  // const basePath = router.pathname.startsWith("/admin") ? "/admin" : "/maintenance";
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [updateStatus, setUpdateStatus] = useState<"checking" | "available" | "downloaded" | "none">("none");
