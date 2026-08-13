@@ -1,13 +1,11 @@
 export interface IAssignOperatorRequest {
     user_id: string;
     unit_id: string;
-    location_id: string;
 }
 
 export interface IAssignOperatorResponse {
     operator: any;
     unit_operator: any;
-    unit_location: any;
 }
 
 import { IRepository } from "./repository";

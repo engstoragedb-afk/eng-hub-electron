@@ -17,6 +17,7 @@ export type IUnit = IEntity<{
     gps_status?: string | null;
     category?: any;
     aplData?: any[];
+    location?: any;
 }>;
 
 export type IUnitCreate = IEntityCreate<{
@@ -36,6 +37,7 @@ export type IUnitCreate = IEntityCreate<{
     gps_status?: string | null;
     category?: any;
     aplData?: any[];
+    location?: any;
 }>;
 
 export class Unit extends Entity<IUnit, IUnitCreate> {
@@ -63,6 +65,7 @@ export class Unit extends Entity<IUnit, IUnitCreate> {
     get gps_status(): string | null { return this._props.gps_status || null; }
     get category(): any { return this._props.category; }
     get aplData(): any[] | undefined { return this._props.aplData; }
+    get location(): any | undefined { return this._props.location; }
 
     public unmarshall(): IEntity<IUnit> {
         return {
@@ -83,6 +86,7 @@ export class Unit extends Entity<IUnit, IUnitCreate> {
             gps_status: this.gps_status,
             category: this.category,
             aplData: this.aplData,
+            location: this.location,
         } as unknown as IEntity<IUnit>;
     }
 }

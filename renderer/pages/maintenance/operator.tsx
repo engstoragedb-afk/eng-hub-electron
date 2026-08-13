@@ -185,21 +185,15 @@ export default function MaintenanceOperatorPage() {
 
     try {
       const selectedUnitObj = masterUnits.find(u => u.name === assignUnit);
-      const selectedLocationObj = masterLocations.find(l => (l.name || l.id) === assignLocation);
 
       if (!selectedUnitObj) {
         toast.error("Silakan pilih unit yang valid dari daftar");
         return;
       }
-      if (!selectedLocationObj || assignLocation === "-") {
-        toast.error("Silakan pilih lokasi penugasan");
-        return;
-      }
 
       await operatorService.assignOperator({
         user_id: selectedUser.id,
-        unit_id: selectedUnitObj.id,
-        location_id: selectedLocationObj.id
+        unit_id: selectedUnitObj.id
       });
 
       setLocalOperators(prev => prev.map(op => {
@@ -207,7 +201,7 @@ export default function MaintenanceOperatorPage() {
           return {
             ...op,
             unit: selectedUnitObj,
-            location: selectedLocationObj.name || selectedLocationObj.id,
+            location: typeof selectedUnitObj.location === 'string' ? selectedUnitObj.location : (selectedUnitObj.location?.name || "-"),
             raw: {
               ...op.raw,
               unit: {
@@ -442,6 +436,13 @@ export default function MaintenanceOperatorPage() {
                           onMouseDown={() => {
                             setAssignUnit(u.name);
                             setIsUnitDropdownOpen(false);
+                            if (typeof u.location === 'string') {
+                                setAssignLocation(u.location);
+                            } else if (u.location && u.location.name) {
+                                setAssignLocation(u.location.name);
+                            } else {
+                                setAssignLocation("-");
+                            }
                           }}
                           className="cursor-pointer px-4 py-2 text-sm text-slate-700 hover:bg-sky-50 dark:text-slate-200 dark:hover:bg-slate-700"
                         >
@@ -455,12 +456,13 @@ export default function MaintenanceOperatorPage() {
                 )}
               </div>
 
-              <label className="block space-y-1.5 text-xs">
+              <label className="block space-y-1.5 text-xs opacity-70">
                 <span className="font-semibold text-slate-900 dark:text-slate-100">Location</span>
                 <select
                   value={assignLocation}
+                  disabled
                   onChange={(e) => setAssignLocation(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-slate-950/50 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-amber-500/50"
+                  className="w-full rounded-xl border border-slate-300 dark:border-white/10 bg-slate-200 dark:bg-slate-900 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 outline-none cursor-not-allowed"
                 >
                   <option value="">-- Pilih Lokasi --</option>
                   {masterLocations.map((loc, i) => (

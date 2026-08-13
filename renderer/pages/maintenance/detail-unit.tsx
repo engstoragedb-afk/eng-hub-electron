@@ -12,7 +12,7 @@ import CopyButton from "@/components/atoms/CopyButton";
 import Lightbox from "@/components/organisms/Lightbox";
 import ImageCropModal from "@/components/organisms/ImageCropModal";
 import dynamic from 'next/dynamic';
-import { unitService, aplUnitService, typeUnitService, auditLogService } from "@/services";
+import { unitService, aplUnitService, typeUnitService, auditLogService, locationService } from "@/services";
 import { ACTIONS } from "@/common/utils/action";
 
 const DetailUnitChart = dynamic(() => import("@/components/organisms/DetailUnitChart"), { 
@@ -41,6 +41,8 @@ export default function UnitDetailPage() {
   const [isSavingApl, setIsSavingApl] = useState(false);
   const [typeUnits, setTypeUnits] = useState<any[]>([]);
   const [isEditingType, setIsEditingType] = useState(false);
+  const [isEditingLocation, setIsEditingLocation] = useState(false);
+  const [locationOptions, setLocationOptions] = useState<any[]>([]);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
@@ -51,6 +53,7 @@ export default function UnitDetailPage() {
   const [gpsLogsPage, setGpsLogsPage] = useState(1);
   const [gpsLogsTotal, setGpsLogsTotal] = useState(0);
   const [isFetchingGpsLogs, setIsFetchingGpsLogs] = useState(false);
+  const [isVaultFocused, setIsVaultFocused] = useState(false);
   const gpsLogsLimit = 10;
 
   useEffect(() => {
@@ -95,6 +98,10 @@ export default function UnitDetailPage() {
   useEffect(() => {
     typeUnitService.getTypeUnits()
       .then(res => setTypeUnits(res || []))
+      .catch(console.error);
+
+    locationService.getLocations()
+      .then((res: any) => setLocationOptions(res || []))
       .catch(console.error);
   }, []);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -141,6 +148,60 @@ export default function UnitDetailPage() {
       if (data.image !== undefined) setIsUploadingImage(false);
     }
   };
+
+  const handleSaveAplItem = async (closeModal = false) => {
+    if (!editingAplItem || !editingAplItem.category_apl_id || editingAplItem.total === undefined) return;
+    try {
+      setIsSavingApl(true);
+      await aplUnitService.upsertAplUnit({
+        unit_id: id as string,
+        category_apl_id: editingAplItem.category_apl_id,
+        total: editingAplItem.total,
+        vault: editingAplItem.vault
+      });
+      
+      const updated = await unitService.getUnitDetails(id as string);
+      setApiUnit(updated);
+      
+      if (closeModal) {
+        setEditingAplItem(null);
+      }
+    } catch (err) {
+      console.error("Failed to save APL unit data:", err);
+      alert("Gagal menyimpan data APL.");
+    } finally {
+      setIsSavingApl(false);
+    }
+  };
+
+  const handleNavigateAplItem = (direction: 'prev' | 'next') => {
+    if (!editingAplItem || !apiUnit?.aplData) return;
+    const sortedAplData = apiUnit.aplData || [];
+    const currentIndex = sortedAplData.findIndex((item: any) => item.category_apl_id === editingAplItem.category_apl_id);
+    if (currentIndex === -1) return;
+    
+    let nextIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
+    if (nextIndex < 0) nextIndex = sortedAplData.length - 1;
+    if (nextIndex >= sortedAplData.length) nextIndex = 0;
+    
+    setEditingAplItem(sortedAplData[nextIndex]);
+  };
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (!editingAplItem) return;
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        handleNavigateAplItem('prev');
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        handleNavigateAplItem('next');
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [editingAplItem, apiUnit]);
+
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -464,23 +525,38 @@ export default function UnitDetailPage() {
                     title="Klik 2 kali untuk mengedit type unit"
                   >
                     {isEditingType ? (
-                      <select
-                        value={unit.type?.id || ""}
-                        onChange={(e) => {
-                          setIsEditingType(false);
-                          if (e.target.value !== (unit.type?.id || "")) {
-                            handleUpdateUnit({ type_id: e.target.value });
+                      <div 
+                        className="relative" 
+                        tabIndex={0} 
+                        autoFocus 
+                        onBlur={(e) => {
+                          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                            setIsEditingType(false);
                           }
                         }}
-                        onBlur={() => setIsEditingType(false)}
-                        className="rounded bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-sky-500 px-2 py-1 outline-none text-sm max-w-[160px]"
-                        autoFocus
                       >
-                        <option value="" disabled>Pilih Type</option>
-                        {typeUnits.map((t: any) => (
-                          <option key={t.id} value={t.id}>{t.name}</option>
-                        ))}
-                      </select>
+                        <div className="w-56 rounded-lg border border-sky-400 dark:border-sky-500 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs text-slate-900 dark:text-slate-100 shadow-sm cursor-pointer flex justify-between items-center">
+                            <span className="truncate">{unit.type?.name || "Pilih Type"}</span>
+                            <span className="text-[10px] ml-2 text-slate-400">▼</span>
+                        </div>
+                        <ul className="absolute z-50 right-0 top-full mt-1 max-h-48 w-64 overflow-y-auto rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 shadow-xl text-left">
+                          {typeUnits.map((t: any) => (
+                            <li
+                              key={t.id}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                if (t.id !== (unit.type?.id || "")) {
+                                  handleUpdateUnit({ type_id: t.id });
+                                }
+                                setIsEditingType(false);
+                              }}
+                              className={`cursor-pointer px-3 py-2 text-xs transition-colors whitespace-normal leading-relaxed ${unit.type?.id === t.id ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300 font-medium' : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-700'}`}
+                            >
+                              {t.name}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     ) : (
                       unit.type?.name || "-"
                     )}
@@ -488,8 +564,44 @@ export default function UnitDetailPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Lokasi</span>
-                  <span className="font-semibold text-slate-900 dark:text-slate-100">
-                    {unit.location?.name ?? '-'}
+                  <span 
+                    className="font-semibold text-slate-900 dark:text-slate-100 cursor-pointer hover:text-sky-500 transition"
+                    onDoubleClick={() => setIsEditingLocation(true)}
+                  >
+                    {isEditingLocation ? (
+                      <div 
+                        className="relative" 
+                        tabIndex={0} 
+                        autoFocus 
+                        onBlur={(e) => {
+                          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                            setIsEditingLocation(false);
+                          }
+                        }}
+                      >
+                        <div className="w-56 rounded-lg border border-sky-400 dark:border-sky-500 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs text-slate-900 dark:text-slate-100 shadow-sm cursor-pointer flex justify-between items-center">
+                            <span className="truncate">{unit.location?.name || "Pilih Lokasi"}</span>
+                            <span className="text-[10px] ml-2 text-slate-400">▼</span>
+                        </div>
+                        <ul className="absolute z-50 right-0 top-full mt-1 max-h-48 w-64 overflow-y-auto rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 shadow-xl">
+                          {locationOptions.map((loc: any) => (
+                            <li
+                              key={loc.id}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                handleUpdateUnit({ location_id: loc.id });
+                                setIsEditingLocation(false);
+                              }}
+                              className={`cursor-pointer px-3 py-2 text-xs transition-colors whitespace-normal leading-relaxed ${unit.location?.id === loc.id ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300 font-medium' : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-700'}`}
+                            >
+                              {loc.name}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : (
+                      unit.location?.name ?? '-'
+                    )}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -597,10 +709,32 @@ export default function UnitDetailPage() {
       {editingAplItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-sm rounded-3xl bg-slate-50 dark:bg-slate-900 p-6 shadow-xl border border-slate-300 dark:border-white/10">
-            <h3 className="mb-4 text-lg font-bold text-slate-900 dark:text-slate-100">
-              {editingAplItem.name}
-            </h3>
-            <div className="space-y-4">
+            <div className="mb-4 flex items-center justify-between">
+              <button 
+                type="button"
+                onClick={() => handleNavigateAplItem('prev')}
+                className="p-2 text-slate-500 hover:bg-slate-200 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100 rounded-full transition cursor-pointer"
+                title="Sebelumnya"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex-1 text-center truncate px-2">
+                {editingAplItem.name}
+              </h3>
+              <button 
+                type="button"
+                onClick={() => handleNavigateAplItem('next')}
+                className="p-2 text-slate-500 hover:bg-slate-200 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100 rounded-full transition cursor-pointer"
+                title="Selanjutnya"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+            <form onSubmit={(e) => { e.preventDefault(); handleSaveAplItem(false); }} className="space-y-4">
               <div>
                 <label className="mb-1 block text-sm text-slate-500 dark:text-slate-400">
                   Sisa Hitungan Sistem (Tampil)
@@ -639,41 +773,40 @@ export default function UnitDetailPage() {
                   type="number"
                   value={editingAplItem.vault !== undefined ? editingAplItem.vault : ""}
                   onChange={(e) => setEditingAplItem({ ...editingAplItem, vault: e.target.value === "" ? undefined : Number(e.target.value) })}
+                  onFocus={() => setIsVaultFocused(true)}
+                  onBlur={() => setTimeout(() => setIsVaultFocused(false), 200)}
                   className="w-full rounded-xl border border-slate-300 dark:border-white/10 bg-white p-3 text-slate-900 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 dark:bg-slate-800 dark:text-slate-100 transition"
                   placeholder="Masukkan jumlah vault..."
                 />
+                {isVaultFocused && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {[150, 300, 500, 1000, 4000].map(val => (
+                      <button
+                        key={val}
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setEditingAplItem({ ...editingAplItem, vault: val });
+                          setIsVaultFocused(false);
+                        }}
+                        className="cursor-pointer rounded-full bg-sky-100 px-3 py-1 text-xs font-medium text-sky-600 hover:bg-sky-200 dark:bg-sky-500/20 dark:text-sky-400 dark:hover:bg-sky-500/30 transition-colors"
+                      >
+                        {val}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="mt-6 flex justify-end gap-3">
                 <button
+                  type="button"
                   onClick={() => setEditingAplItem(null)}
                   className="rounded-xl px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-800 transition cursor-pointer"
                 >
-                  Batal
+                  Tutup
                 </button>
                 <button
-                  onClick={async () => {
-                    try {
-                      setIsSavingApl(true);
-                      if (editingAplItem && editingAplItem.category_apl_id && editingAplItem.total !== undefined) {
-                        await aplUnitService.upsertAplUnit({
-                          unit_id: id as string,
-                          category_apl_id: editingAplItem.category_apl_id,
-                          total: editingAplItem.total,
-                          vault: editingAplItem.vault
-                        });
-                        
-                        // Re-fetch unit to update UI
-                        const updated = await unitService.getUnitDetails(id as string);
-                        setApiUnit(updated);
-                      }
-                      setEditingAplItem(null);
-                    } catch (err) {
-                      console.error("Failed to save APL unit data:", err);
-                      alert("Gagal menyimpan data APL.");
-                    } finally {
-                      setIsSavingApl(false);
-                    }
-                  }}
+                  type="submit"
                   disabled={isSavingApl}
                   className={`rounded-xl px-4 py-2 text-sm font-medium text-white transition shadow-lg cursor-pointer ${isSavingApl ? 'bg-sky-400 cursor-not-allowed shadow-none' : 'bg-sky-500 hover:bg-sky-600 shadow-sky-500/30'}`}
                 >
@@ -687,7 +820,7 @@ export default function UnitDetailPage() {
                   )}
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}
