@@ -1,4 +1,6 @@
 import axios, { Axios } from "axios";
+import https from "https";
+import http from "http";
 import config from "@/common/utils/config";
 
 export class RestApi {
@@ -46,6 +48,10 @@ export class RestApi {
         "Content-Type": "application/json",
         'ngrok-skip-browser-warning': '69420'
       },
+      ...(typeof window === 'undefined' ? {
+        httpAgent: new http.Agent({ keepAlive: true }),
+        httpsAgent: new https.Agent({ rejectUnauthorized: false, keepAlive: true }),
+      } : {})
     });
     return this;
   }
