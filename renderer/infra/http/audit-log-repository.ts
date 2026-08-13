@@ -28,7 +28,9 @@ export class AuditLogRepository extends Repository<IAuditLog> implements IAuditL
         const totalRow = data.data?.totalRow || 0;
         const page = data.data?.page || params?.page || 1;
         const limit = data.data?.limit || params?.limit || 10;
-        
+        if (resData.length > 0) {
+            console.log("RAW AUDIT LOG DATA:", resData[0]);
+        }
         return {
             data: resData.map((item: any) => AuditLog.create(item).unmarshall()),
             totalRow,

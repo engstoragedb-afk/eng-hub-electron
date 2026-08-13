@@ -33,6 +33,7 @@ export default function UnitDetailPage() {
   const { id } = router.query;
 
   const [apiUnit, setApiUnit] = useState<any>(null);
+  const [siblingUnits, setSiblingUnits] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingAplItem, setEditingAplItem] = useState<{category_apl_id: string, name: string, total: number, vault?: number, input: number, schedule: number} | null>(null);
   const [isChartModalOpen, setIsChartModalOpen] = useState(false);
@@ -189,18 +190,39 @@ export default function UnitDetailPage() {
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if (!editingAplItem) return;
-      if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        handleNavigateAplItem('prev');
-      } else if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        handleNavigateAplItem('next');
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+
+      if (editingAplItem) {
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          handleNavigateAplItem('prev');
+        } else if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          handleNavigateAplItem('next');
+        }
+      } else {
+        if (siblingUnits.length > 0 && apiUnit?.id) {
+          const currentIndex = siblingUnits.findIndex(u => u.id === apiUnit.id);
+          if (currentIndex !== -1) {
+            if (e.key === 'ArrowLeft') {
+              e.preventDefault();
+              const prevIndex = currentIndex === 0 ? siblingUnits.length - 1 : currentIndex - 1;
+              router.replace(`/maintenance/detail-unit?id=${siblingUnits[prevIndex].id}`);
+            } else if (e.key === 'ArrowRight') {
+              e.preventDefault();
+              const nextIndex = currentIndex === siblingUnits.length - 1 ? 0 : currentIndex + 1;
+              router.replace(`/maintenance/detail-unit?id=${siblingUnits[nextIndex].id}`);
+            }
+          }
+        }
       }
     };
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [editingAplItem, apiUnit]);
+  }, [editingAplItem, apiUnit, siblingUnits, router]);
 
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -229,6 +251,18 @@ export default function UnitDetailPage() {
       .then((data) => {
         if (data) {
           setApiUnit(data);
+          const catId = data.category_id || (data as any).categoryId || data.category?.id || (typeof data.category === 'string' ? data.category : null);
+          if (catId) {
+            unitService.getUnitsByCategory(catId, { limit: 1000 })
+              .then((res: any) => {
+                if (res && res.data) {
+                  setSiblingUnits(res.data);
+                } else if (Array.isArray(res)) {
+                  setSiblingUnits(res);
+                }
+              })
+              .catch(console.error);
+          }
         }
       })
       .catch((err) => console.error("Failed to fetch unit detail:", err))
@@ -361,8 +395,11 @@ export default function UnitDetailPage() {
     <React.Fragment>
       <MaintenanceLayout title="Detail Unit" subtitle={`Informasi unit ${unit.code}`}>
         <div className="mb-6">
-          <button onClick={() => router.back()} className="inline-flex items-center text-sm text-slate-400 dark:text-slate-400 hover:text-amber-500 transition mb-4 cursor-pointer">
-            <FaArrowLeft className="mr-2" /> Kembali ke menu sebelumnya
+          <button 
+            onClick={() => router.back()} 
+            className="inline-flex items-center text-sm text-slate-400 dark:text-slate-400 hover:text-amber-500 transition mb-4 cursor-pointer"
+          >
+            <FaArrowLeft className="mr-2" /> Kembali
           </button>
         </div>
         <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
@@ -758,9 +795,17 @@ export default function UnitDetailPage() {
                   )}
                 </div>
                 <input
+                  id="apl-input-total"
                   type="number"
+                  autoFocus
                   value={editingAplItem.total !== undefined ? editingAplItem.total : ""}
                   onChange={(e) => setEditingAplItem({ ...editingAplItem, total: e.target.value === "" ? undefined as any : Number(e.target.value) })}
+                  onKeyDown={(e) => {
+                    if (e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      document.getElementById('apl-input-vault')?.focus();
+                    }
+                  }}
                   className={`w-full rounded-xl border ${editingAplItem.total === undefined ? "border-amber-400 dark:border-amber-500/50 focus:border-amber-500 focus:ring-amber-500" : "border-slate-300 dark:border-white/10 focus:border-sky-500 focus:ring-sky-500"} bg-white p-3 text-slate-900 focus:outline-none focus:ring-1 dark:bg-slate-800 dark:text-slate-100 transition`}
                   placeholder="Masukkan angka sebenarnya..."
                 />
@@ -770,17 +815,24 @@ export default function UnitDetailPage() {
                   Vault*
                 </label>
                 <input
+                  id="apl-input-vault"
                   type="number"
                   value={editingAplItem.vault !== undefined ? editingAplItem.vault : ""}
                   onChange={(e) => setEditingAplItem({ ...editingAplItem, vault: e.target.value === "" ? undefined : Number(e.target.value) })}
                   onFocus={() => setIsVaultFocused(true)}
                   onBlur={() => setTimeout(() => setIsVaultFocused(false), 200)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      document.getElementById('apl-input-total')?.focus();
+                    }
+                  }}
                   className="w-full rounded-xl border border-slate-300 dark:border-white/10 bg-white p-3 text-slate-900 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 dark:bg-slate-800 dark:text-slate-100 transition"
                   placeholder="Masukkan jumlah vault..."
                 />
                 {isVaultFocused && (
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {[150, 300, 500, 1000, 4000].map(val => (
+                    {[150, 300, 500, 1000, 2000, 4000, 5000].map(val => (
                       <button
                         key={val}
                         type="button"
@@ -919,7 +971,8 @@ export default function UnitDetailPage() {
                 Tidak ada log ditemukan.
               </div>
             ) : (
-              gpsLogs.map(log => {
+              <>
+              {gpsLogs.map(log => {
                 let parsedOld = {};
                 let parsedNew = {};
                 try {
@@ -955,7 +1008,8 @@ export default function UnitDetailPage() {
                     )}
                   </div>
                 );
-              })
+              })}
+              </>
             )}
           </div>
           <div className="p-4 border-t border-slate-200 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">

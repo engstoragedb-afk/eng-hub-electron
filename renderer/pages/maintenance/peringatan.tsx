@@ -63,7 +63,7 @@ export default function PeringatanServisPage() {
         title="Peringatan Servis"
         subtitle="Daftar lengkap notifikasi sparepart dan jadwal"
       >
-        <section className="rounded-3xl border border-slate-300 dark:border-white/10 bg-slate-200/50 dark:bg-white/5 p-6 shadow-xl backdrop-blur-md">
+        <section className="rounded-3xl border border-slate-300 dark:border-white/10 bg-slate-200/50 dark:bg-white/5 p-6 shadow-xl">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <SectionHeading
               title=""

@@ -248,7 +248,7 @@ export default function MaintenanceJadwalPage() {
           </div>
 
           {/* Calendar Grid Container */}
-          <div className="flex-1 flex flex-col rounded-3xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900/50 overflow-hidden shadow-2xl backdrop-blur-sm min-h-0">
+          <div className="flex-1 flex flex-col rounded-3xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900/50 overflow-hidden shadow-2xl min-h-0">
             {/* Days of Week Header */}
             <div className="grid grid-cols-7 border-b border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-slate-950/50 shrink-0">
               {["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"].map((d, i) => (
@@ -350,7 +350,7 @@ export default function MaintenanceJadwalPage() {
 
       {/* Role Selection Modal */}
       {isRoleModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-50 dark:bg-slate-950/80 p-6 backdrop-blur-sm" onClick={() => setIsRoleModalOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-50 dark:bg-slate-950/80 p-6" onClick={() => setIsRoleModalOpen(false)}>
           <div className="flex w-full max-w-sm flex-col overflow-hidden rounded-3xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900/95 shadow-2xl p-6 text-center" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-xl font-bold mb-4 text-slate-900 dark:text-slate-100">Pilih Jenis Penugasan</h3>
             <div className="flex flex-col gap-3">
@@ -385,7 +385,7 @@ export default function MaintenanceJadwalPage() {
 
       {/* Assignment Modal */}
       {isAssignModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-50 dark:bg-slate-950/80 p-6 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-50 dark:bg-slate-950/80 p-6">
           <div className="flex w-full max-w-3xl max-h-[90vh] flex-col overflow-hidden rounded-3xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900/95 shadow-2xl">
             <div className="flex shrink-0 items-center justify-between border-b border-slate-300 dark:border-white/10 px-6 py-4">
               <div>

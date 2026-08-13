@@ -14,11 +14,11 @@ export type IEntityCreate<I> = {
 
 export class Entity<I, C> {
   protected _props: IEntity<I>;
-  constructor({ id, created_at, updated_at, ...props }: IEntityCreate<C>) {
+  constructor({ id, created_at, updated_at, ...props }: IEntityCreate<C> & { createdAt?: any; updatedAt?: any }) {
     this._props = {
       id: id || `${Date.now()}${Math.ceil(Math.random() * 9999999999)}`,
-      created_at: created_at || new Date().getTime(),
-      updated_at: updated_at || null,
+      created_at: created_at || props.createdAt || new Date().getTime(),
+      updated_at: updated_at || props.updatedAt || null,
       ...(<I>props),
     };
   }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import toast from "react-hot-toast";
+import { FaGrip, FaList } from "react-icons/fa6";
 
 import MaintenanceLayout from "@/components/organisms/MaintenanceLayout";
 import UnitCard from "@/components/molecules/UnitCard";
@@ -42,6 +43,7 @@ export default function MaintenanceUnitList() {
   const [gpsStatusFilter, setGpsStatusFilter] = useState("Semua");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 9;
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const [refreshKey, setRefreshKey] = useState(0);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -240,7 +242,7 @@ export default function MaintenanceUnitList() {
         title={`Maintenance Unit ${categoryName}`}
         subtitle="Daftar unit dan status perbaikan"
       >
-        <section className="rounded-3xl border border-slate-300 dark:border-white/10 bg-slate-200/50 dark:bg-white/5 p-6 shadow-xl backdrop-blur-md">
+        <section className="rounded-3xl border border-slate-300 dark:border-white/10 bg-slate-100/90 dark:bg-white/[0.03] p-6 shadow-xl">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <SectionHeading
               title={``}
@@ -350,10 +352,31 @@ export default function MaintenanceUnitList() {
                   ))}
                 </select>
               </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                  Tampilan
+                </label>
+                <div className="flex items-center h-[38px] rounded-xl bg-slate-200/50 dark:bg-slate-800 p-1">
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`flex-1 flex items-center justify-center rounded-lg h-full transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-700 text-sky-500 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                    title="Tampilan Grid"
+                  >
+                    <FaGrip className="text-sm" />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`flex-1 flex items-center justify-center rounded-lg h-full transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-700 text-sky-500 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                    title="Tampilan List"
+                  >
+                    <FaList className="text-sm" />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className={viewMode === 'grid' ? "grid gap-4 sm:grid-cols-2 xl:grid-cols-3" : "flex flex-col gap-3"}>
             {paginatedUnits.length > 0 ? (
               paginatedUnits.map((item) => (
                 <UnitCard
@@ -366,6 +389,7 @@ export default function MaintenanceUnitList() {
                   gpsVendor={item.gpsVendor}
                   gpsStatus={item.gpsStatus}
                   imageUrl={item.image || categoryImages[item.category]}
+                  viewMode={viewMode}
                   onClick={() => router.push(`/maintenance/detail-unit?code=${item.code}&id=${item.id}`)}
                 />
               ))
@@ -412,7 +436,7 @@ export default function MaintenanceUnitList() {
       </MaintenanceLayout>
 
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60">
           <div 
             className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
           >
