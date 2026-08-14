@@ -9,7 +9,14 @@ import { useUIStore } from "@/store/uiStore"
 import { Toaster } from 'react-hot-toast'
 import { ThemeProvider } from 'next-themes'
 import { AuthProvider } from "@/components/providers/AuthProvider"
+import { Poppins } from 'next/font/google'
 import '../styles/globals.css'
+
+const poppins = Poppins({
+  weight: ['100', '200', '300', '400', '500', '600', '700', '800', '900'],
+  subsets: ['latin'],
+  variable: '--font-poppins',
+})
 
 function MyApp({ Component, pageProps }: AppProps) {
   const router = useRouter()
@@ -33,7 +40,7 @@ function MyApp({ Component, pageProps }: AppProps) {
   return (
     <ThemeProvider attribute="class" defaultTheme="dark">
       <AuthProvider>
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex">
+      <div className={`${poppins.variable} font-sans min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex`}>
         <Toaster 
           position="top-right" 
           toastOptions={{

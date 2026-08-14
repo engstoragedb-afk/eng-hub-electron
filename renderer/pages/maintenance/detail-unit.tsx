@@ -191,12 +191,26 @@ export default function UnitDetailPage() {
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+      const isInputFocused = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+
+      if (editingAplItem && isInputFocused && (e.key === 'q' || e.key === 'Q')) {
+        e.preventDefault();
+        target.blur();
+        return;
+      }
+
+      if (isInputFocused) {
         return;
       }
 
       if (editingAplItem) {
-        if (e.key === 'ArrowLeft') {
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          document.getElementById('apl-input-total')?.focus();
+        } else if (e.key === 'q' || e.key === 'Q') {
+          e.preventDefault();
+          setEditingAplItem(null);
+        } else if (e.key === 'ArrowLeft') {
           e.preventDefault();
           handleNavigateAplItem('prev');
         } else if (e.key === 'ArrowRight') {
@@ -204,6 +218,12 @@ export default function UnitDetailPage() {
           handleNavigateAplItem('next');
         }
       } else {
+        if (e.key === 'q' || e.key === 'Q') {
+          e.preventDefault();
+          if (apiUnit?.aplData && apiUnit.aplData.length > 0) {
+            setEditingAplItem(apiUnit.aplData[0]);
+          }
+        }
         if (siblingUnits.length > 0 && apiUnit?.id) {
           const currentIndex = siblingUnits.findIndex(u => u.id === apiUnit.id);
           if (currentIndex !== -1) {
@@ -804,6 +824,9 @@ export default function UnitDetailPage() {
                     if (e.key === 'ArrowDown') {
                       e.preventDefault();
                       document.getElementById('apl-input-vault')?.focus();
+                    } else if (e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      document.getElementById('apl-input-vault')?.focus();
                     }
                   }}
                   className={`w-full rounded-xl border ${editingAplItem.total === undefined ? "border-amber-400 dark:border-amber-500/50 focus:border-amber-500 focus:ring-amber-500" : "border-slate-300 dark:border-white/10 focus:border-sky-500 focus:ring-sky-500"} bg-white p-3 text-slate-900 focus:outline-none focus:ring-1 dark:bg-slate-800 dark:text-slate-100 transition`}
@@ -823,6 +846,9 @@ export default function UnitDetailPage() {
                   onBlur={() => setTimeout(() => setIsVaultFocused(false), 200)}
                   onKeyDown={(e) => {
                     if (e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      document.getElementById('apl-input-total')?.focus();
+                    } else if (e.key === 'ArrowDown') {
                       e.preventDefault();
                       document.getElementById('apl-input-total')?.focus();
                     }
