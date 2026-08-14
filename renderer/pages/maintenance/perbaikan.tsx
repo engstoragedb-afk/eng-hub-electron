@@ -148,7 +148,7 @@ export default function MaintenanceBreakdownPage() {
           {paginatedRepairs.map((repair) => (
             <Link
               key={repair.code}
-              href={`/maintenance/detail-perbaikan?id=${repair.code}`}
+              href={`/maintenance/perbaikan/${repair.code}`}
               className="block rounded-3xl border border-slate-200 dark:border-white/5 bg-white dark:bg-slate-900/50 p-5 transition hover:border-amber-500/30 hover:bg-slate-50 dark:hover:bg-slate-900 group"
             >
               <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
@@ -177,9 +177,6 @@ export default function MaintenanceBreakdownPage() {
                     <h4 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-1">
                       {repair.unit}
                     </h4>
-                    <p className="text-sm text-slate-400 dark:text-slate-600 dark:text-slate-400 line-clamp-1">
-                      {repair.description}
-                    </p>
                   </div>
                   <div className="flex flex-col items-start gap-3 sm:items-end">
                     <div className="flex items-center gap-2">

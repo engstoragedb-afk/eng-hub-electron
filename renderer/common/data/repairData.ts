@@ -612,7 +612,7 @@ export const repairs = [
     location: "Site A",
     status: "Menunggu",
     priority: "Tinggi",
-    date: "12 Aug 2026",
-    description: "Kebocoran hidrolik pada arm kiri.",
+    date: "12 Aug 2026, 12:00",
+    description: "-",
   }
 ];

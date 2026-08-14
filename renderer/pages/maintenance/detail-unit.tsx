@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
-import { FaArrowLeft, FaExpandAlt, FaTimes, FaSearchPlus, FaCrop, FaImage, FaCheckCircle, FaWrench, FaMapMarkerAlt, FaWifi, FaExclamationTriangle, FaEyeSlash } from "react-icons/fa";
+import { FaArrowLeft, FaExpandAlt, FaTimes, FaSearchPlus, FaCrop, FaImage, FaCheckCircle, FaWrench, FaMapMarkerAlt, FaWifi, FaExclamationTriangle, FaEyeSlash, FaHistory } from "react-icons/fa";
 import toast from "react-hot-toast";
 import { EGPSStatus } from "@/common/utils/status";
 
 import MaintenanceLayout from "@/components/organisms/MaintenanceLayout";
 import Badge from "@/components/atoms/Badge";
-import SectionHeading from "@/components/atoms/SectionHeading";
 import EditableText from "@/components/atoms/EditableText";
 import CopyButton from "@/components/atoms/CopyButton";
 import Lightbox from "@/components/organisms/Lightbox";
@@ -14,6 +13,7 @@ import ImageCropModal from "@/components/organisms/ImageCropModal";
 import dynamic from 'next/dynamic';
 import { unitService, aplUnitService, typeUnitService, auditLogService, locationService } from "@/services";
 import { ACTIONS } from "@/common/utils/action";
+import { repairs } from "@/common/data/repairData";
 
 const DetailUnitChart = dynamic(() => import("@/components/organisms/DetailUnitChart"), { 
   ssr: false, 
@@ -56,6 +56,9 @@ export default function UnitDetailPage() {
   const [isFetchingGpsLogs, setIsFetchingGpsLogs] = useState(false);
   const [isVaultFocused, setIsVaultFocused] = useState(false);
   const gpsLogsLimit = 10;
+  
+  const [activeMainTab, setActiveMainTab] = useState<'JADWAL' | 'HISTORY'>('JADWAL');
+  const [repairLogs, setRepairLogs] = useState<any[]>([]);
 
   useEffect(() => {
     if (!isGpsLogOpen || !apiUnit) return;
@@ -95,6 +98,13 @@ export default function UnitDetailPage() {
     }
     return () => clearTimeout(timer);
   }, [isChartModalOpen]);
+
+  useEffect(() => {
+    if (activeMainTab === 'HISTORY') {
+      const mockLogs = repairs;
+      setRepairLogs(mockLogs);
+    }
+  }, [activeMainTab, apiUnit]);
 
   useEffect(() => {
     typeUnitService.getTypeUnits()
@@ -150,7 +160,7 @@ export default function UnitDetailPage() {
     }
   };
 
-  const handleSaveAplItem = async (closeModal = false) => {
+  const handleSaveAplItem = async (closeModal = false, navigateNext = false) => {
     if (!editingAplItem || !editingAplItem.category_apl_id || editingAplItem.total === undefined) return;
     try {
       setIsSavingApl(true);
@@ -166,6 +176,14 @@ export default function UnitDetailPage() {
       
       if (closeModal) {
         setEditingAplItem(null);
+      } else if (navigateNext) {
+        const sortedAplData = updated?.aplData || [];
+        const currentIndex = sortedAplData.findIndex((item: any) => item.category_apl_id === editingAplItem.category_apl_id);
+        if (currentIndex !== -1) {
+          let nextIndex = currentIndex + 1;
+          if (nextIndex >= sortedAplData.length) nextIndex = 0;
+          setEditingAplItem(sortedAplData[nextIndex]);
+        }
       }
     } catch (err) {
       console.error("Failed to save APL unit data:", err);
@@ -404,7 +422,7 @@ export default function UnitDetailPage() {
           font: { size: 11, weight: 'bold' as const },
           callback: function(value: any, index: number) {
             const dataValue = sortedAplData[index].input || 0;
-            return `${dataValue}`;
+            return `${dataValue} Jam`;
           }
         }
       },
@@ -541,24 +559,71 @@ export default function UnitDetailPage() {
 
             <div className="mt-6 rounded-3xl border border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-slate-950/80 p-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                <div>
-                  <SectionHeading
-                    title="JADWAL PEMELIHARAAN"
-                    description="Jadwal penggantian indikator berdasarkan batas HM/Jam."
-                  />
+                <div className="flex gap-6 border-b border-slate-200 dark:border-white/10 w-full sm:w-auto">
+                  <button
+                    onClick={() => setActiveMainTab('JADWAL')}
+                    className={`pb-3 text-sm font-bold transition-all border-b-2 flex items-center gap-2 ${activeMainTab === 'JADWAL' ? 'border-sky-500 text-sky-600 dark:text-sky-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                  >
+                    <FaWrench size={16} /> MAINTENANCE
+                  </button>
+                  {/* <button
+                    onClick={() => setActiveMainTab('HISTORY')}
+                    className={`pb-3 text-sm font-bold transition-all border-b-2 flex items-center gap-2 ${activeMainTab === 'HISTORY' ? 'border-sky-500 text-sky-600 dark:text-sky-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                  >
+                    <FaHistory size={16} /> BREAKDOWN
+                  </button> */}
                 </div>
-                <button
-                  onClick={() => setIsChartModalOpen(true)}
-                  className="p-3 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 transition flex items-center justify-center text-slate-600 dark:text-slate-300"
-                  title="Perbesar Grafik"
-                >
-                  <FaExpandAlt />
-                </button>
+                {activeMainTab === 'JADWAL' && (
+                  <button
+                    onClick={() => setIsChartModalOpen(true)}
+                    className="p-3 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 transition flex items-center justify-center text-slate-600 dark:text-slate-300"
+                    title="Perbesar Grafik"
+                  >
+                    <FaExpandAlt />
+                  </button>
+                )}
               </div>
               <div className="mt-4">
-                <div className="w-full relative" style={{ height: `${sortedAplData.length * 45 + 60}px` }}>
-                  <DetailUnitChart chartData={chartData} chartOptions={chartOptions} />
-                </div>
+                {activeMainTab === 'JADWAL' ? (
+                  <div className="w-full relative" style={{ height: `${sortedAplData.length * 45 + 60}px` }}>
+                    <DetailUnitChart chartData={chartData} chartOptions={chartOptions} />
+                  </div>
+                ) : (
+                  <div className="flex-1 space-y-4">
+                    {repairLogs.length === 0 ? (
+                      <div className="text-center text-slate-400 py-12 bg-white dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
+                        Belum ada riwayat perbaikan.
+                      </div>
+                    ) : (
+                      <>
+                      {repairLogs.map((log, index) => (
+                        <div key={index} className="p-5 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5">
+                          <div className="flex justify-between items-center mb-4 border-b border-slate-200 dark:border-white/10 pb-4">
+                            <span className="text-sm font-normal text-slate-400">{log.date}</span>
+                            <Badge tone={log.status === "Selesai" ? "success" : "warning"}>{log.status}</Badge>
+                          </div>
+                          <div className="grid sm:grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <span className="text-xs font-semibold text-slate-400">KODE WO</span>
+                              <p className="font-bold text-slate-900 dark:text-white">{log.code}</p>
+                            </div>
+                            <div className="space-y-1">
+                              <span className="text-xs font-semibold text-slate-400">PRIORITAS</span>
+                              <p className={`font-bold ${log.priority === 'Tinggi' ? 'text-rose-500' : 'text-amber-500'}`}>{log.priority}</p>
+                            </div>
+                            <div className="sm:col-span-2 pt-2">
+                              <span className="text-xs font-semibold text-slate-400 block mb-2">KETERANGAN</span>
+                              <p className="text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-white/5 leading-relaxed">
+                                {log.description}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -691,7 +756,7 @@ export default function UnitDetailPage() {
                 </div>
                 <button
                   onClick={() => setIsGpsLogOpen(true)}
-                  className="rounded-xl border border-sky-500 bg-sky-50 dark:bg-sky-500/10 px-3 py-1.5 text-xs font-semibold text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-500/20 transition"
+                  className="rounded-xl border border-sky-500 bg-sky-50 dark:bg-sky-500/10 px-3 py-1.5 text-xs font-semibold text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-500/20 transition cursor-pointer"
                 >
                   HISTORY GPS
                 </button>
@@ -700,13 +765,13 @@ export default function UnitDetailPage() {
                 <div className="flex items-center justify-between">
                   <span>Manufacture Year</span>
                   <span className="font-semibold text-slate-900 dark:text-slate-100">
-                    <EditableText value={unit.manufactureYear} type="number" />
+                    <EditableText value={unit.manufactureYear} type="number" onSave={(val) => handleUpdateUnit({ manufacture_year: Number(val) })} />
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Serial Number</span>
                   <span className="font-semibold text-slate-900 dark:text-slate-100">
-                    <EditableText value={unit.serialNumber} />
+                    <EditableText value={unit.serialNumber} onSave={(val) => handleUpdateUnit({ serial_number: val })} />
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -766,32 +831,61 @@ export default function UnitDetailPage() {
       {editingAplItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-sm rounded-3xl bg-slate-50 dark:bg-slate-900 p-6 shadow-xl border border-slate-300 dark:border-white/10">
-            <div className="mb-4 flex items-center justify-between">
-              <button 
-                type="button"
-                onClick={() => handleNavigateAplItem('prev')}
-                className="p-2 text-slate-500 hover:bg-slate-200 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100 rounded-full transition cursor-pointer"
-                title="Sebelumnya"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex-1 text-center truncate px-2">
+            <div className="mb-6 flex flex-col gap-3">
+              <div className="flex items-start justify-between">
+                {(() => {
+                  const sortedData = apiUnit?.aplData || [];
+                  const total = sortedData.length;
+                  const currentIdx = sortedData.findIndex((item: any) => item.category_apl_id === editingAplItem.category_apl_id);
+                  if (total > 0 && currentIdx !== -1) {
+                    return (
+                      <div className="flex flex-col gap-2">
+                        <span className="text-xs font-bold text-sky-500 dark:text-sky-400 uppercase tracking-widest">
+                          Langkah {currentIdx + 1} / {total}
+                        </span>
+                        <div className="flex gap-1.5 flex-wrap max-w-[200px]">
+                          {Array.from({ length: total }).map((_, idx) => (
+                            <div 
+                              key={idx} 
+                              className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentIdx ? 'w-6 bg-sky-500' : idx < currentIdx ? 'w-2 bg-sky-200 dark:bg-sky-800' : 'w-2 bg-slate-200 dark:bg-slate-700/50'}`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+                  return <div />;
+                })()}
+
+                <div className="flex items-center gap-1 -mt-1 -mr-2">
+                  <button 
+                    type="button"
+                    onClick={() => handleNavigateAplItem('prev')}
+                    className="p-2 text-slate-400 hover:bg-slate-200 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100 rounded-full transition cursor-pointer"
+                    title="Sebelumnya"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => handleNavigateAplItem('next')}
+                    className="p-2 text-slate-400 hover:bg-slate-200 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100 rounded-full transition cursor-pointer"
+                    title="Selanjutnya"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <h3 className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 w-full mt-2">
                 {editingAplItem.name}
               </h3>
-              <button 
-                type="button"
-                onClick={() => handleNavigateAplItem('next')}
-                className="p-2 text-slate-500 hover:bg-slate-200 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100 rounded-full transition cursor-pointer"
-                title="Selanjutnya"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
             </div>
-            <form onSubmit={(e) => { e.preventDefault(); handleSaveAplItem(false); }} className="space-y-4">
+            <form onSubmit={(e) => { e.preventDefault(); handleSaveAplItem(false, true); }} className="space-y-4">
               <div>
                 <label className="mb-1 block text-sm text-slate-500 dark:text-slate-400">
                   Sisa Hitungan Sistem (Tampil)
@@ -1059,6 +1153,8 @@ export default function UnitDetailPage() {
           </div>
         </div>
       </div>
+
+
     </React.Fragment>
   );
 }

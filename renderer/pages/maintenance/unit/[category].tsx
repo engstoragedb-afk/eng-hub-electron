@@ -7,7 +7,7 @@ import MaintenanceLayout from "@/components/organisms/MaintenanceLayout";
 import UnitCard from "@/components/molecules/UnitCard";
 import SectionHeading from "@/components/atoms/SectionHeading";
 
-import { unitService, locationService } from "@/services";
+import { unitService, locationService, categoryUnitsService } from "@/services";
 import { EGPSStatus } from "@/common/utils/status";
 
 interface UnitType {
@@ -65,6 +65,66 @@ export default function MaintenanceUnitList() {
       document.body.style.overflow = "unset";
     };
   }, [isAddModalOpen]);
+
+  const [allCategories, setAllCategories] = useState<{id: string; name: string}[]>([]);
+
+  useEffect(() => {
+    categoryUnitsService.getAll()
+      .then((data) => {
+        if (data) {
+          const formatted = data
+            .filter((item: any) => item.name !== "NULL" && item.name !== "equipment_group")
+            .map((item: any) => ({ id: item.id, name: item.name }));
+          setAllCategories(formatted);
+        }
+      })
+      .catch((err) => console.error("Failed to fetch category units:", err));
+  }, []);
+
+  // Keyboard Navigation for Pagination & Category
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Prevent pagination if user is typing in an input or modal is open
+      if (
+        isAddModalOpen ||
+        document.activeElement?.tagName === "INPUT" ||
+        document.activeElement?.tagName === "TEXTAREA" ||
+        document.activeElement?.tagName === "SELECT"
+      ) {
+        return;
+      }
+
+      const totalPages = Math.ceil(totalRow / itemsPerPage) || 1;
+
+      if (e.key === "ArrowLeft") {
+        setCurrentPage((p) => Math.max(1, p - 1));
+      } else if (e.key === "ArrowRight") {
+        setCurrentPage((p) => Math.min(totalPages, p + 1));
+      } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+        if (allCategories.length === 0) return;
+        
+        const currentIndex = allCategories.findIndex(c => c.name === category);
+        if (currentIndex === -1) return;
+        
+        let nextIndex = currentIndex;
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          nextIndex = (currentIndex - 1 + allCategories.length) % allCategories.length;
+        } else if (e.key === "ArrowDown") {
+          e.preventDefault();
+          nextIndex = (currentIndex + 1) % allCategories.length;
+        }
+        
+        if (nextIndex !== currentIndex) {
+          const nextCat = allCategories[nextIndex];
+          router.push(`/maintenance/unit/${encodeURIComponent(nextCat.name)}?id=${nextCat.id}`);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isAddModalOpen, totalRow, itemsPerPage, allCategories, category, router]);
 
   const handleCreateUnit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -58,16 +58,29 @@ export default function MaintenanceDashboard() {
         subtitle="Pantau pekerjaan dan ketersediaan tim"
       >
         <section className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {stats.map((stat) => (
-            <StatCard
-              key={stat.title}
-              title={stat.title}
-              value={stat.value}
-              description={stat.description}
-              tone={stat.tone as any}
-              icon={iconMapping[stat.icon as keyof typeof iconMapping]}
-            />
-          ))}
+          {stats.map((stat) => {
+            const isUnit = stat.title.includes("Unit");
+            const isBreakdown = stat.title.includes("Breakdown");
+            const href = isUnit ? "/maintenance/unit" : isBreakdown ? "/maintenance/perbaikan" : undefined;
+            
+            const card = (
+              <StatCard
+                title={stat.title}
+                value={stat.value}
+                description={stat.description}
+                tone={stat.tone as any}
+                icon={iconMapping[stat.icon as keyof typeof iconMapping]}
+              />
+            );
+
+            return href ? (
+              <Link href={href} key={stat.title} className="block transition-all hover:-translate-y-1 hover:shadow-lg hover:shadow-sky-500/10 rounded-3xl cursor-pointer">
+                {card}
+              </Link>
+            ) : (
+              <div key={stat.title}>{card}</div>
+            );
+          })}
         </section>
 
         <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">

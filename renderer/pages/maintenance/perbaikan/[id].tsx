@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import MaintenanceLayout from "@/components/organisms/MaintenanceLayout";
 import { repairs } from "@/common/data/repairData";
 import Link from "next/link";
-import { FaArrowLeft, FaCheck } from "react-icons/fa6";
+import { FaArrowLeft, FaCheck, FaRegCalendarAlt, FaMapMarkerAlt, FaTags, FaExclamationCircle } from "react-icons/fa";
 import Lightbox from "@/components/organisms/Lightbox";
 
 export default function MaintenanceRepairDetail() {
@@ -42,163 +42,147 @@ export default function MaintenanceRepairDetail() {
         </Link>
       </div>
 
-      <section className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
-        <div className="rounded-3xl border border-slate-300 dark:border-white/10 bg-slate-200/50 dark:bg-white/5 p-6">
-          <div className="flex flex-wrap items-start gap-6">
-            <div className="flex h-44 w-44 items-center justify-center overflow-hidden rounded-3xl bg-slate-50 dark:bg-slate-950/70 p-4 cursor-pointer group" onClick={() => {
-              setLightboxData({
-                src: `/units/${repair.image}`,
-                title: "Foto Utama",
-                desc: "Gambar utama kondisi unit."
-              });
-              setIsLightboxOpen(true);
-            }}>
-              <img
-                src={`/units/${repair.image}`}
-                alt={repair.unit}
-                className="h-full w-full object-contain group-hover:scale-105 transition-transform"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src =
-                    "https://placehold.co/400x400/1e293b/cbd5e1?text=No+Image";
-                }}
-              />
-            </div>
-            <div className="flex-1">
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.3em] text-slate-400 dark:text-slate-600 dark:text-slate-400">
-                    {repair.code}
-                  </p>
-                  <h3 className="mt-2 text-4xl font-extrabold">Unit {repair.unit}</h3>
-                </div>
-                <div className="space-y-2 text-right text-sm flex flex-col items-end gap-2">
-                  <span className={`inline-flex rounded-full px-4 py-2 text-xs font-semibold ${
-                    repair.status === 'Selesai' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-300' :
-                    repair.status === 'Proses' ? 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-300' : 'bg-slate-500/20 text-slate-700 dark:text-slate-300'
-                  }`}>
-                    {repair.status}
-                  </span>
-                  <span className={`inline-flex rounded-full px-4 py-2 text-xs font-semibold ${
-                    repair.priority === 'Tinggi' ? 'bg-rose-500/20 text-rose-300' :
-                    repair.priority === 'Sedang' ? 'bg-orange-500/20 text-orange-300' : 'bg-slate-500/20 text-slate-700 dark:text-slate-300'
-                  }`}>
-                    Prioritas {repair.priority}
-                  </span>
-                </div>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="rounded-3xl bg-white dark:bg-slate-900/70 p-5">
-                  <p className="text-xs text-slate-400 dark:text-slate-600 dark:text-slate-400">Tanggal Lapor</p>
-                  <p className="mt-2 text-xl font-semibold text-slate-900 dark:text-slate-100">{repair.date}</p>
-                </div>
-                <div className="rounded-3xl bg-white dark:bg-slate-900/70 p-5">
-                  <p className="text-xs text-slate-400 dark:text-slate-600 dark:text-slate-400">Kategori</p>
-                  <p className="mt-2 text-xl font-semibold text-slate-900 dark:text-slate-100">{repair.category}</p>
-                </div>
-                <div className="rounded-3xl bg-white dark:bg-slate-900/70 p-5">
-                  <p className="text-xs text-slate-400 dark:text-slate-600 dark:text-slate-400">Lokasi</p>
-                  <p className="mt-2 text-xl font-semibold text-slate-900 dark:text-slate-100">{repair.location}</p>
-                </div>
-                <div className="rounded-3xl bg-white dark:bg-slate-900/70 p-5">
-                  <p className="text-xs text-slate-400 dark:text-slate-600 dark:text-slate-400">Status</p>
-                  <p className="mt-2 text-xl font-semibold text-slate-900 dark:text-slate-100">{repair.status}</p>
-                </div>
-              </div>
+      <div className="bg-white dark:bg-slate-900/80 rounded-[2rem] border border-slate-200 dark:border-white/10 shadow-sm overflow-hidden mb-10">
+        
+        {/* Unified Header */}
+        <div className="px-8 py-6 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-slate-950/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white">
+              <span className="text-slate-400 font-medium mr-2">WO-{repair.code}</span>
+              {repair.unit}
+            </h3>
+            <div className="flex gap-2">
+              <span className={`inline-flex rounded-full px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider ${
+                repair.status === 'Selesai' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400' :
+                repair.status === 'Proses' ? 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400' : 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-400'
+              }`}>
+                {repair.status}
+              </span>
+              <span className={`inline-flex rounded-full px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider ${
+                repair.priority === 'Tinggi' ? 'bg-rose-100 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400' :
+                repair.priority === 'Sedang' ? 'bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400' : 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-400'
+              }`}>
+                {repair.priority}
+              </span>
             </div>
           </div>
+        </div>
 
-          <div className="mt-8 rounded-3xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900/70 p-6">
-            <h4 className="text-lg font-bold">Deskripsi Masalah</h4>
-            <p className="mt-3 text-sm leading-7 text-slate-700 dark:text-slate-300">
-              {repair.description}
-            </p>
-          </div>
+        {/* Content Body: Split into two columns inside the card */}
+        <div className="flex flex-col xl:flex-row">
           
-          <div className="mt-4 grid grid-cols-3 gap-3 rounded-3xl bg-white dark:bg-slate-900/80 p-3">
-            {[1, 2, 3].map((num) => (
+          {/* Left Side: Visuals & Description */}
+          <div className="flex-[1.5] p-8 xl:border-r border-slate-100 dark:border-white/5">
+            <div className="flex flex-col sm:flex-row gap-6 mb-8">
+              {/* Main Image */}
               <div 
-                key={num} 
-                className="h-24 overflow-hidden rounded-2xl bg-slate-50 dark:bg-slate-950/50 p-2 cursor-pointer group border border-slate-200 dark:border-white/5 hover:border-amber-500/50 transition-colors"
+                className="shrink-0 h-48 w-48 rounded-2xl bg-slate-50 dark:bg-slate-950 overflow-hidden cursor-pointer group border border-slate-100 dark:border-white/5"
                 onClick={() => {
                   setLightboxData({
                     src: `/units/${repair.image}`,
-                    title: `Foto Tambahan ${num}`,
-                    desc: "Detail spesifik kondisi kerusakan."
+                    title: "Foto Utama",
+                    desc: "Gambar utama kondisi unit."
                   });
                   setIsLightboxOpen(true);
                 }}
               >
-                <img src={`/units/${repair.image}`} alt="Preview" className="h-full w-full object-contain group-hover:scale-110 transition-transform" />
+                <img
+                  src={`/units/${repair.image}`}
+                  alt={repair.unit}
+                  className="h-full w-full object-contain p-4 group-hover:scale-110 transition-transform duration-300"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = "https://placehold.co/400x400/1e293b/cbd5e1?text=No+Image";
+                  }}
+                />
               </div>
-            ))}
-          </div>
-        </div>
+              
+              {/* Description directly inline */}
+              <div className="flex-1">
+                <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+                  <FaExclamationCircle className="text-amber-500" /> Laporan Kerusakan
+                </h4>
+                <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed bg-amber-50/50 dark:bg-amber-900/10 p-5 rounded-2xl border border-amber-100 dark:border-amber-900/30">
+                  {repair.description}
+                </p>
+              </div>
+            </div>
 
-        <div className="space-y-4">
-          <div className="rounded-3xl border border-slate-300 dark:border-white/10 bg-slate-200/50 dark:bg-white/5 p-5">
-            <h4 className="mb-3 text-lg font-bold">Informasi Tambahan</h4>
-            <div className="space-y-3 text-sm text-slate-700 dark:text-slate-300">
-              <div className="flex items-center justify-between">
-                <span>Prioritas</span>
-                <span className="inline-flex items-center rounded-full bg-slate-200 dark:bg-slate-700/70 px-3 py-1 text-xs font-semibold text-slate-900 dark:text-slate-100">
-                  {repair.priority}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Status</span>
-                <span className="inline-flex items-center rounded-full bg-slate-200 dark:bg-slate-700/70 px-3 py-1 text-xs font-semibold text-slate-900 dark:text-slate-100">
-                  {repair.status}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Kategori</span>
-                <span className="inline-flex items-center rounded-full bg-slate-200 dark:bg-slate-700/70 px-3 py-1 text-xs font-semibold text-slate-900 dark:text-slate-100">
-                  {repair.category}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Lokasi</span>
-                <span className="inline-flex items-center rounded-full bg-slate-200 dark:bg-slate-700/70 px-3 py-1 text-xs font-semibold text-slate-900 dark:text-slate-100">
-                  {repair.location}
-                </span>
-              </div>
+            {/* Gallery */}
+            <h4 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4">Lampiran Foto Tambahan (3)</h4>
+            <div className="flex gap-4 overflow-x-auto pb-2">
+              {[1, 2, 3].map((num) => (
+                <div 
+                  key={num} 
+                  className="h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-slate-50 dark:bg-slate-950 p-2 cursor-pointer group border border-slate-100 dark:border-white/5 hover:border-amber-400 transition-colors"
+                  onClick={() => {
+                    setLightboxData({
+                      src: `/units/${repair.image}`,
+                      title: `Foto Tambahan ${num}`,
+                      desc: "Detail spesifik kondisi kerusakan."
+                    });
+                    setIsLightboxOpen(true);
+                  }}
+                >
+                  <img src={`/units/${repair.image}`} alt="Preview" className="h-full w-full object-contain group-hover:scale-110 transition-transform duration-300" />
+                </div>
+              ))}
             </div>
           </div>
 
-          <div className="rounded-3xl border border-slate-300 dark:border-white/10 bg-slate-200/50 dark:bg-white/5 p-5">
-            <h4 className="mb-3 text-lg font-bold">Detail Komponen & Klasifikasi</h4>
-            <div className="space-y-3 text-sm text-slate-700 dark:text-slate-300">
-              <div className="flex items-center justify-between gap-4">
-                <span className="shrink-0">Major Component</span>
-                <span className="text-right font-semibold text-slate-900 dark:text-slate-100 break-words">-</span>
+          {/* Right Side: Data & Action */}
+          <div className="flex-1 flex flex-col bg-slate-50/50 dark:bg-slate-900/30">
+            <div className="p-8 flex-1">
+              <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-6 border-b border-slate-200 dark:border-white/10 pb-4">Data Operasional</h4>
+              
+              {/* Unified Data Table */}
+              <div className="space-y-4 text-sm">
+                <div className="grid grid-cols-[1fr_1.5fr] gap-4">
+                  <span className="text-slate-500 flex items-center gap-2"><FaRegCalendarAlt className="text-slate-400" /> Tanggal Lapor</span>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">{repair.date}</span>
+                </div>
+                <div className="grid grid-cols-[1fr_1.5fr] gap-4">
+                  <span className="text-slate-500 flex items-center gap-2"><FaMapMarkerAlt className="text-slate-400" /> Lokasi</span>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">{repair.location}</span>
+                </div>
+                <div className="grid grid-cols-[1fr_1.5fr] gap-4">
+                  <span className="text-slate-500 flex items-center gap-2"><FaTags className="text-slate-400" /> Kategori Unit</span>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">{repair.category}</span>
+                </div>
+                
+                <div className="my-6 border-t border-slate-200 dark:border-white/10 pt-6">
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-6">Klasifikasi Komponen</h4>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-[1fr_1.5fr] gap-4">
+                      <span className="text-slate-500">Major Component</span>
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">-</span>
+                    </div>
+                    <div className="grid grid-cols-[1fr_1.5fr] gap-4">
+                      <span className="text-slate-500">Component</span>
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">-</span>
+                    </div>
+                    <div className="grid grid-cols-[1fr_1.5fr] gap-4">
+                      <span className="text-slate-500">Sub Component</span>
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">-</span>
+                    </div>
+                    <div className="grid grid-cols-[1fr_1.5fr] gap-4">
+                      <span className="text-slate-500">Problem Type</span>
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">-</span>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center justify-between gap-4 border-t border-slate-200 dark:border-white/5 pt-3">
-                <span className="shrink-0">Component</span>
-                <span className="text-right font-semibold text-slate-900 dark:text-slate-100 break-words">-</span>
-              </div>
-              <div className="flex items-center justify-between gap-4 border-t border-slate-200 dark:border-white/5 pt-3">
-                <span className="shrink-0">Sub Component</span>
-                <span className="text-right font-semibold text-slate-900 dark:text-slate-100 break-words">-</span>
-              </div>
-              <div className="flex items-center justify-between gap-4 border-t border-slate-200 dark:border-white/5 pt-3">
-                <span className="shrink-0">Major Action</span>
-                <span className="text-right font-semibold text-slate-900 dark:text-slate-100 break-words">-</span>
-              </div>
-              <div className="flex items-center justify-between gap-4 border-t border-slate-200 dark:border-white/5 pt-3">
-                <span className="shrink-0">Problem Type</span>
-                <span className="text-right font-semibold text-slate-900 dark:text-slate-100 break-words">-</span>
-              </div>
+            </div>
+
+            {/* Action Bottom */}
+            <div className="p-8 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-white/10 mt-auto rounded-br-[2rem]">
+              <button className="w-full flex items-center justify-center gap-3 rounded-xl bg-amber-500 px-4 py-4 text-sm font-bold text-slate-950 transition-all hover:bg-amber-400 active:scale-[0.98] shadow-[0_4px_14px_0_rgba(245,158,11,0.39)] hover:shadow-[0_6px_20px_rgba(245,158,11,0.23)]">
+                <FaCheck size={16} /> Tandai Selesai
+              </button>
             </div>
           </div>
 
-          <div className="rounded-3xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900/70 p-5">
-            <h4 className="mb-3 text-lg font-bold">Aksi</h4>
-            <button className="w-full flex items-center justify-center gap-2 rounded-2xl bg-amber-500 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-amber-400">
-              <FaCheck /> Tandai sebagai Selesai
-            </button>
-          </div>
         </div>
-      </section>
+      </div>
 
       <Lightbox 
         isOpen={isLightboxOpen} 

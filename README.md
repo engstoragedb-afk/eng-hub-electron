@@ -39,3 +39,7 @@ $ yarn build (or `npm run build` or `pnpm run build`)
 ### Build
 
 npm run build -- --win --publish always
+
+### Build
+
+npm run build -- --win --x64 --publish always
