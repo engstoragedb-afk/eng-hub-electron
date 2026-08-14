@@ -3,6 +3,7 @@ import { app, ipcMain, dialog } from 'electron'
 import pkg from 'electron-updater'
 const { autoUpdater } = pkg;
 import serve from 'electron-serve'
+import Store from 'electron-store'
 import { createWindow } from './helpers/create-window'
 
 const isProd = process.env.NODE_ENV === 'production'
@@ -68,37 +69,88 @@ ipcMain.on('message', async (event, arg) => {
 })
 
 // Auto Updater Setup
-autoUpdater.autoDownload = true;
+const store = new Store({
+  defaults: { updateChannel: 'latest' }
+});
+
+autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = true;
+autoUpdater.channel = store.get('updateChannel', 'latest') as string;
+
+function sendUpdateStatus(status: string, data: any = {}) {
+  const windows = require('electron').BrowserWindow.getAllWindows();
+  if (windows.length > 0 && !windows[0].isDestroyed()) {
+    windows[0].webContents.send('update-status', { status, ...data });
+  }
+}
+
+autoUpdater.on('checking-for-update', () => {
+  sendUpdateStatus('checking');
+});
 
 autoUpdater.on('update-available', (info) => {
-  // We can broadcast this to all windows if we keep track of them, 
-  // but for simplicity we will send it to the main window if it exists.
-  const windows = require('electron').BrowserWindow.getAllWindows();
-  if (windows.length > 0) {
-    windows[0].webContents.send('update-available', info);
-  }
+  sendUpdateStatus('available', {
+    version: info.version,
+    releaseNotes: info.releaseNotes
+  });
+});
+
+autoUpdater.on('update-not-available', () => {
+  sendUpdateStatus('up-to-date');
+});
+
+autoUpdater.on('download-progress', (progress) => {
+  sendUpdateStatus('downloading', {
+    percent: Math.round(progress.percent)
+  });
 });
 
 autoUpdater.on('update-downloaded', (info) => {
-  const windows = require('electron').BrowserWindow.getAllWindows();
-  if (windows.length > 0) {
-    windows[0].webContents.send('update-downloaded', info);
-  }
+  sendUpdateStatus('downloaded', { version: info.version });
 });
 
 autoUpdater.on('error', (err) => {
-  console.error('AutoUpdater Error:', err);
+  sendUpdateStatus('error', { message: err.message });
+});
+
+ipcMain.handle('check-for-updates', async () => {
+  if (!app.isPackaged) return { status: 'dev-mode' };
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return {
+      status: 'ok',
+      version: result?.updateInfo?.version
+    };
+  } catch (err: any) {
+    return { status: 'error', message: err.message };
+  }
+});
+
+ipcMain.handle('download-update', async () => {
+  try {
+    await autoUpdater.downloadUpdate();
+    return { status: 'ok' };
+  } catch (err: any) {
+    return { status: 'error', message: err.message };
+  }
 });
 
 ipcMain.handle('install-update', () => {
-  autoUpdater.quitAndInstall();
+  autoUpdater.quitAndInstall(false, true);
 });
 
-if (isProd) {
-  setTimeout(() => {
-    autoUpdater.checkForUpdatesAndNotify().catch((err) => {
-      console.error('Failed to check for updates:', err);
-    });
-  }, 5000);
-}
+ipcMain.handle('set-update-channel', (event, channel) => {
+  store.set('updateChannel', channel);
+  autoUpdater.channel = channel;
+  return { status: 'ok', channel };
+});
+
+app.whenReady().then(() => {
+  if (app.isPackaged) {
+    setTimeout(() => {
+      autoUpdater.checkForUpdates().catch(err => {
+        console.log('[Updater] Auto-check failed:', err.message);
+      });
+    }, 5000);
+  }
+});

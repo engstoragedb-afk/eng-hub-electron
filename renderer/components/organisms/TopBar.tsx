@@ -10,31 +10,36 @@ export default function TopBar() {
   // const basePath = router.pathname.startsWith("/admin") ? "/admin" : "/maintenance";
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const [updateStatus, setUpdateStatus] = useState<"checking" | "available" | "downloaded" | "none">("none");
+  const [updateStatus, setUpdateStatus] = useState<"none" | "checking" | "available" | "downloading" | "downloaded" | "error" | "up-to-date">("none");
+  const [updateProgress, setUpdateProgress] = useState(0);
 
   useEffect(() => {
     setMounted(true);
     
-    let removeAvailableListener: (() => void) | undefined;
-    let removeDownloadedListener: (() => void) | undefined;
+    let removeStatusListener: (() => void) | undefined;
 
     if (typeof window !== "undefined" && window.ipc) {
-      removeAvailableListener = window.ipc.on("update-available", () => {
-        setUpdateStatus("available");
+      removeStatusListener = window.ipc.on("update-status", (data: any) => {
+        if (data.status) setUpdateStatus(data.status);
+        if (data.percent !== undefined) setUpdateProgress(data.percent);
       });
-      removeDownloadedListener = window.ipc.on("update-downloaded", () => {
-        setUpdateStatus("downloaded");
-      });
+      
+      // Optionally ping for status or trigger a check
+      // window.ipc.invoke("check-for-updates");
     }
     
     return () => {
-      if (removeAvailableListener) removeAvailableListener();
-      if (removeDownloadedListener) removeDownloadedListener();
+      if (removeStatusListener) removeStatusListener();
     };
   }, []);
 
   const handleUpdateClick = () => {
-    if (updateStatus === "downloaded" && typeof window !== "undefined" && window.ipc) {
+    if (typeof window === "undefined" || !window.ipc) return;
+    
+    if (updateStatus === "available") {
+      window.ipc.invoke("download-update");
+      setUpdateStatus("downloading");
+    } else if (updateStatus === "downloaded") {
       window.ipc.invoke("install-update");
     }
   };
@@ -55,31 +60,38 @@ export default function TopBar() {
       >
         {mounted && (theme === 'dark' ? <FaSun className="text-sm" /> : <FaMoon className="text-sm" />)}
       </button>
-      {/* <Link href={`${basePath}/notification`} className="relative flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 transition hover:bg-slate-200 dark:bg-slate-700 hover:text-sky-500 border border-slate-200 dark:border-white/5 shadow-sm">
-        <FaBell className="text-base" />
-        <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
-      </Link> */}
       
-      {updateStatus !== "none" && (
+      {updateStatus !== "none" && updateStatus !== "checking" && updateStatus !== "up-to-date" && updateStatus !== "error" && (
         <button 
           onClick={handleUpdateClick}
-          disabled={updateStatus === "available"}
+          disabled={updateStatus === "downloading"}
           className={`relative flex h-10 items-center justify-center rounded-full px-4 text-sm font-semibold transition border shadow-sm ${
             updateStatus === "downloaded" 
               ? "bg-sky-500 text-white hover:bg-sky-600 border-sky-600" 
-              : "bg-amber-500/10 text-amber-500 border-amber-500/30 cursor-wait"
+              : updateStatus === "available"
+              ? "bg-amber-500 text-white hover:bg-amber-600 border-amber-600 shadow-amber-500/20"
+              : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700 cursor-wait"
           }`}
-          title={updateStatus === "downloaded" ? "Install Update & Restart" : "Downloading Update..."}
+          title={
+            updateStatus === "downloaded" ? "Install Update & Restart" : 
+            updateStatus === "available" ? "Download Update" : 
+            "Downloading Update..."
+          }
         >
           {updateStatus === "downloaded" ? (
             <>
               <FaSync className="mr-2 text-xs" />
               Restart to Update
             </>
+          ) : updateStatus === "available" ? (
+            <>
+              <FaDownload className="mr-2 text-xs" />
+              Update Available
+            </>
           ) : (
             <>
               <FaDownload className="mr-2 text-xs animate-bounce" />
-              Downloading...
+              Downloading {updateProgress}%
             </>
           )}
         </button>
