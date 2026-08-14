@@ -36,10 +36,10 @@ $ yarn dev (or `npm run dev` or `pnpm run dev`)
 # production build
 $ yarn build (or `npm run build` or `pnpm run build`)
 ```
-### Build
+### Build & Publish
 
-npm run build -- --win --publish always
+Untuk langsung membangun versi `.exe` (Windows) dan `.dmg` (Mac) sekaligus mempublishnya ke GitHub, cukup jalankan 1 perintah ini:
 
-### Build
-
-npm run build -- --win --x64 --publish always
+```bash
+npm run build -- --mac --win --publish always
+```

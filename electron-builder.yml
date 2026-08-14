@@ -11,12 +11,15 @@ files:
       - app
 mac:
   target:
-    - dmg
-    - zip
+    - target: dmg
+      arch: universal
+    - target: zip
+      arch: universal
   icon: resources/icon.icns
 win:
   target:
-    - nsis
+    - target: nsis
+      arch: x64
   icon: resources/icon.ico
 nsis:
   oneClick: false
