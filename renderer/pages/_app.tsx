@@ -76,7 +76,7 @@ function MyApp({ Component, pageProps }: AppProps) {
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -15 }}
-            transition={{ duration: 0.3, ease: 'easeIn' }}
+            transition={{ duration: 0.2, ease: 'easeIn' }}
             className="flex-1 flex flex-col"
           >
             <Component {...pageProps} />

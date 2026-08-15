@@ -330,34 +330,32 @@ export default function MaintenanceOperatorPage() {
                       router.push(`/maintenance/detail-unit?id=${item.raw.unit.id}`);
                     }
                   }}
-                  className={`flex ${viewMode === 'grid' ? 'flex-col p-5' : 'flex-row items-center justify-between p-4 px-6'} rounded-3xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900/70 transition hover:border-amber-400/60 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer`}
+                  className={`flex ${viewMode === 'grid' ? 'flex-col p-6' : 'flex-row items-center justify-between p-4 px-6'} rounded-[20px] border border-slate-200/80 dark:border-white/10 bg-white dark:bg-slate-900/80 transition-all hover:border-slate-300 hover:shadow-lg hover:-translate-y-0.5 dark:hover:bg-slate-800 cursor-pointer overflow-hidden shadow-[0_2px_10px_rgba(0,0,0,0.02)]`}
                 >
-                  <div className={`flex items-start gap-4 ${viewMode === 'grid' ? 'justify-between' : 'w-1/3'}`}>
-                    <div className="flex items-center gap-4">
-                      <div className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-slate-950 ${viewMode === 'grid' ? 'h-14 w-14' : 'h-10 w-10'}`}>
-                        {item?.unit?.image || item?.category?.image ? (
-                          <img src={item?.unit?.image || item?.category?.image} alt={item.name} className="h-full w-full object-cover" />
-                        ) : (
-                          <span className={`${viewMode === 'grid' ? 'text-xl' : 'text-sm'} font-bold text-sky-400`}>
-                            {getInitials(item.name)}
-                          </span>
-                        )}
-                      </div>
-                      <div>
-                        <div className={`${viewMode === 'grid' ? 'text-lg' : 'text-base'} font-bold text-slate-900 dark:text-slate-100`}>{item.name}</div>
-                      </div>
+                  <div className={`flex items-center gap-4 ${viewMode === 'grid' ? 'mb-5' : 'w-1/3'}`}>
+                    <div className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-100 dark:border-white/10 bg-slate-50 dark:bg-slate-950 ${viewMode === 'grid' ? 'h-[52px] w-[52px] shadow-sm' : 'h-10 w-10'}`}>
+                      {item?.unit?.image || item?.category?.image ? (
+                        <img src={item?.unit?.image || item?.category?.image} alt={item.name} className="h-full w-full object-cover" />
+                      ) : (
+                        <span className={`${viewMode === 'grid' ? 'text-lg' : 'text-sm'} font-bold text-sky-400`}>
+                          {getInitials(item.name)}
+                        </span>
+                      )}
+                    </div>
+                    <div className={`${viewMode === 'grid' ? 'text-[17px]' : 'text-base'} font-bold text-slate-800 dark:text-slate-100 tracking-tight`}>
+                      {item.name}
                     </div>
                   </div>
 
-                  <div className={`${viewMode === 'grid' ? 'mt-4 grid grid-cols-2 gap-3 border-t border-slate-200 dark:border-white/5 pt-4' : 'flex items-center w-1/3 gap-8'}`}>
+                  <div className={`${viewMode === 'grid' ? 'grid grid-cols-2 gap-4 border-t border-slate-100 dark:border-white/5 pt-5 mb-6' : 'flex items-center w-1/3 gap-8'}`}>
                     <div className={viewMode === 'list' ? 'flex-1' : ''}>
-                      <p className="text-xs text-slate-400 dark:text-slate-500">Unit Assignment</p>
+                      <p className="text-[12px] font-medium text-slate-400 dark:text-slate-500 mb-1">Unit Assignment</p>
                       {!item.unit || !item.unit.id ? (
-                        <p className="font-medium text-slate-500 dark:text-slate-400">-</p>
+                        <p className="font-semibold text-slate-500 dark:text-slate-400">-</p>
                       ) : (
                         <Link
                           href={`/maintenance/detail-unit?id=${item.unit.id}`}
-                          className="font-medium text-amber-500 hover:text-amber-600 hover:underline dark:text-amber-400 dark:hover:text-amber-300"
+                          className="font-bold text-[15px] text-amber-500 hover:text-amber-600 dark:text-amber-400 dark:hover:text-amber-300"
                           prefetch={false}
                           onClick={(e) => e.stopPropagation()}
                         >
@@ -365,24 +363,24 @@ export default function MaintenanceOperatorPage() {
                         </Link>
                       )}
                     </div>
-                    <div className={viewMode === 'list' ? 'flex-1' : ''}>
-                      <p className="text-xs text-slate-400 dark:text-slate-500">Location</p>
-                      <p title={item.location} className={`font-medium truncate ${item.location === "-" ? "text-slate-500 dark:text-slate-400" : "text-slate-800 dark:text-slate-200"}`}>
+                    <div className={viewMode === 'list' ? 'flex-1' : 'overflow-hidden'}>
+                      <p className="text-[12px] font-medium text-slate-400 dark:text-slate-500 mb-1">Location</p>
+                      <p title={item.location} className={`font-semibold text-[15px] truncate ${item.location === "-" ? "text-slate-500 dark:text-slate-400" : "text-slate-700 dark:text-slate-200"}`}>
                         {item.location}
                       </p>
                     </div>
                   </div>
 
-                  <div className={`${viewMode === 'grid' ? 'mt-5 grid grid-cols-2 gap-3' : 'flex items-center justify-end w-1/3 gap-3'}`}>
+                  <div className={`${viewMode === 'grid' ? 'grid grid-cols-2 gap-3 mt-auto' : 'flex items-center justify-end w-1/3 gap-3'}`}>
                     {item.unit && item.unit.id ? (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleUnassign(item);
                         }}
-                        className={`flex items-center justify-center gap-2 rounded-xl bg-rose-50 px-4 py-2.5 text-sm font-bold text-rose-600 transition-all duration-200 hover:bg-rose-100 active:scale-95 dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/20 ${viewMode === 'list' ? 'w-auto py-2' : ''}`}
+                        className={`flex items-center justify-center gap-2 rounded-xl bg-rose-50/80 px-4 py-2.5 text-[13.5px] font-bold text-rose-600 transition-all duration-200 hover:bg-rose-100 active:scale-95 dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/20 ${viewMode === 'list' ? 'w-auto py-2' : ''}`}
                       >
-                        <FaXmark /> Lepas{viewMode === 'grid' ? ' Tugas' : ''}
+                        <FaXmark size={14} className="stroke-[2px]" /> Lepas{viewMode === 'grid' ? ' Tugas' : ''}
                       </button>
                     ) : null}
                     <button
@@ -390,13 +388,13 @@ export default function MaintenanceOperatorPage() {
                         e.stopPropagation();
                         handleOpenAssign(item);
                       }}
-                      className={`flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all duration-200 active:scale-95 ${
+                      className={`flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[13.5px] font-bold transition-all duration-200 active:scale-95 ${
                         item.unit && item.unit.id 
                           ? "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700" 
-                          : `${viewMode === 'grid' ? 'col-span-2' : ''} bg-sky-500 text-white shadow-md shadow-sky-500/20 hover:bg-sky-600 hover:shadow-sky-500/40`
+                          : `${viewMode === 'grid' ? 'col-span-2' : ''} bg-sky-50 text-sky-600 hover:bg-sky-100 dark:bg-sky-500/10 dark:text-sky-400 dark:hover:bg-sky-500/20`
                       } ${viewMode === 'list' ? 'w-auto py-2' : ''}`}
                     >
-                      <FaPenToSquare /> {item.unit && item.unit.id ? `Ubah${viewMode === 'grid' ? ' Tugas' : ''}` : "Atur Penugasan"}
+                      <FaPenToSquare size={14} /> {item.unit && item.unit.id ? `Ubah${viewMode === 'grid' ? ' Tugas' : ''}` : "Atur Penugasan"}
                     </button>
                   </div>
                 </div>

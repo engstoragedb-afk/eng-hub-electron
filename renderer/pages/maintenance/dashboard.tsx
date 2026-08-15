@@ -60,8 +60,8 @@ export default function MaintenanceDashboard() {
         <section className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {stats.map((stat) => {
             const isUnit = stat.title.includes("Unit");
-            const isBreakdown = stat.title.includes("Breakdown");
-            const href = isUnit ? "/maintenance/unit" : isBreakdown ? "/maintenance/perbaikan" : undefined;
+            // const isBreakdown = stat.title.includes("Breakdown");
+            const href = isUnit ? "/maintenance/unit" : undefined;
             
             const card = (
               <StatCard

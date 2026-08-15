@@ -48,12 +48,15 @@ export default function TopBar() {
   };
 
   useEffect(() => {
+    let timer: NodeJS.Timeout;
     if (updateStatus === "up-to-date" || updateStatus === "error") {
-      const timer = setTimeout(() => {
+      timer = setTimeout(() => {
         setUpdateStatus("none");
       }, 3000);
-      return () => clearTimeout(timer);
     }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
   }, [updateStatus]);
 
   return (
