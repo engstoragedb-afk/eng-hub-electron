@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import { FaTruck, FaList, FaUserCog, FaWrench } from "react-icons/fa";
+import { FaTruck, FaList, FaUserCog, FaWrench, FaExclamationTriangle, FaRegClock, FaChevronRight } from "react-icons/fa";
 import { dashboardService } from "@/services";
 
 import MaintenanceLayout from "@/components/organisms/MaintenanceLayout";
@@ -132,19 +132,49 @@ export default function MaintenanceDashboard() {
                   <div 
                     key={log.id} 
                     onClick={() => oldData.unit_id && router.push(`/maintenance/detail-unit?id=${oldData.unit_id}`)}
-                    className="flex items-center justify-between rounded-2xl bg-white dark:bg-slate-900/60 px-4 py-4 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition border border-transparent hover:border-slate-200 dark:hover:border-white/5"
+                    className="group flex flex-col sm:flex-row sm:items-center justify-between p-3.5 bg-white dark:bg-slate-900/60 rounded-xl border border-slate-100 dark:border-white/5 shadow-sm relative overflow-hidden mb-3 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-300"
                   >
-                    <div className="flex items-center gap-3">
-                      <span className="rounded-lg bg-sky-100 dark:bg-sky-500/20 px-2.5 py-1 text-xs font-bold tracking-wide text-sky-600 dark:text-sky-400">
-                        {oldData.unit_name}
-                      </span>
-                      <span className="font-medium text-slate-700 dark:text-slate-200">
-                        {oldData.name}
-                      </span>
+                    {/* Left Accent Bar */}
+                    <div className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-xl ${isCritical ? 'bg-rose-500' : 'bg-amber-500'}`}></div>
+
+                    <div className="flex items-center gap-3 ml-2">
+                      {/* Icon */}
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center ${isCritical ? 'bg-rose-50 text-rose-500 dark:bg-rose-500/10' : 'bg-amber-50 text-amber-500 dark:bg-amber-500/10'}`}>
+                        {isCritical ? <FaExclamationTriangle size={14} /> : <FaWrench size={14} />}
+                      </div>
+                      
+                      {/* Content */}
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[9px] font-extrabold px-1.5 py-0.5 rounded-full uppercase">
+                            {oldData.unit_name}
+                          </span>
+                          <span className="text-slate-400 dark:text-slate-500 text-[9px] flex items-center gap-1 font-medium uppercase tracking-wider">
+                            <FaRegClock /> {new Date(log.created_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}
+                          </span>
+                        </div>
+                        <div className="text-slate-800 dark:text-slate-100 font-extrabold text-sm uppercase tracking-wide group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
+                          {oldData.name}
+                        </div>
+                      </div>
                     </div>
-                    <span className={`text-sm font-bold ${isCritical ? 'text-rose-500 dark:text-rose-400' : 'text-amber-500 dark:text-amber-400'}`}>
-                      {isCritical ? 'Critical' : 'Warning'} • Sisa {newData.input} jam
-                    </span>
+                    
+                    <div className="flex items-center justify-between sm:justify-end gap-5 ml-14 sm:ml-0 mt-2 sm:mt-0">
+                      {/* Sisa Waktu */}
+                      <div className="flex flex-col items-start sm:items-end">
+                        <span className="text-slate-400 dark:text-slate-500 text-[9px] font-extrabold tracking-widest uppercase">
+                          SISA WAKTU
+                        </span>
+                        <span className={`font-black text-sm ${isCritical ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                          {newData.input} Jam
+                        </span>
+                      </div>
+                      
+                      {/* Button */}
+                      <div className="w-7 h-7 rounded-full bg-slate-50 dark:bg-slate-800/50 flex items-center justify-center text-slate-400 group-hover:bg-slate-100 dark:group-hover:bg-slate-800 transition-colors">
+                        <FaChevronRight size={10} className="ml-0.5" />
+                      </div>
+                    </div>
                   </div>
                 );
               })}

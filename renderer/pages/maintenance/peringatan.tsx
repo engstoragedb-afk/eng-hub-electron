@@ -97,40 +97,47 @@ export default function PeringatanServisPage() {
                   <div 
                     key={log.id} 
                     onClick={() => oldData.unit_id && router.push(`/maintenance/detail-unit?id=${oldData.unit_id}`)}
-                    className="group relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl bg-white dark:bg-slate-900/60 p-5 cursor-pointer hover:-translate-y-1 hover:shadow-lg transition-all duration-300 border border-slate-200 dark:border-white/5 hover:border-sky-500/30 overflow-hidden"
+                    className="group flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-white dark:bg-slate-900/60 rounded-xl border border-slate-100 dark:border-white/5 shadow-sm relative overflow-hidden mb-3 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-300"
                   >
-                    <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${isCritical ? 'bg-rose-500' : 'bg-amber-500'}`}></div>
+                    {/* Left Accent Bar */}
+                    <div className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-xl ${isCritical ? 'bg-rose-500' : 'bg-amber-500'}`}></div>
 
-                    <div className="flex items-center gap-5 ml-2">
-                      <div className={`flex items-center justify-center w-12 h-12 rounded-2xl shadow-inner ${isCritical ? 'bg-rose-100 text-rose-500 dark:bg-rose-500/20' : 'bg-amber-100 text-amber-500 dark:bg-amber-500/20'}`}>
-                        {isCritical ? <FaExclamationTriangle size={20} /> : <FaWrench size={20} />}
+                    <div className="flex items-center gap-4 ml-2">
+                      {/* Icon */}
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isCritical ? 'bg-rose-50 text-rose-500 dark:bg-rose-500/10' : 'bg-amber-50 text-amber-500 dark:bg-amber-500/10'}`}>
+                        {isCritical ? <FaExclamationTriangle size={16} /> : <FaWrench size={16} />}
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="rounded-lg bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 text-xs font-bold tracking-wider text-slate-700 dark:text-slate-300">
+                      
+                      {/* Content */}
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase">
                             {oldData.unit_name}
                           </span>
-                          <span className="text-xs font-medium text-slate-400 flex items-center gap-1.5">
+                          <span className="text-slate-400 dark:text-slate-500 text-[10px] flex items-center gap-1 font-medium uppercase tracking-wider">
                             <FaRegClock /> {new Date(log.created_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}
                           </span>
                         </div>
-                        <div className="text-lg font-bold text-slate-800 dark:text-slate-100 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
+                        <div className="text-slate-800 dark:text-slate-100 font-extrabold text-[15px] uppercase tracking-wide group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
                           {oldData.name}
                         </div>
                       </div>
                     </div>
                     
-                    <div className="flex items-center justify-between sm:justify-end gap-6 ml-2 sm:ml-0 mt-2 sm:mt-0">
+                    <div className="flex items-center justify-between sm:justify-end gap-6 ml-16 sm:ml-0 mt-3 sm:mt-0">
+                      {/* Sisa Waktu */}
                       <div className="flex flex-col items-start sm:items-end">
-                        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-                          Sisa Waktu
+                        <span className="text-slate-400 dark:text-slate-500 text-[9px] font-extrabold tracking-widest uppercase">
+                          SISA WAKTU
                         </span>
-                        <span className={`text-base font-black ${isCritical ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                        <span className={`font-black text-sm ${isCritical ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'}`}>
                           {newData.input} Jam
                         </span>
                       </div>
-                      <div className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-800 text-slate-400 group-hover:bg-sky-50 dark:group-hover:bg-sky-500/20 group-hover:text-sky-500 transition-colors">
-                        <FaChevronRight size={14} />
+                      
+                      {/* Button */}
+                      <div className="w-8 h-8 rounded-full bg-slate-50 dark:bg-slate-800/50 flex items-center justify-center text-slate-400 group-hover:bg-slate-100 dark:group-hover:bg-slate-800 transition-colors">
+                        <FaChevronRight size={12} className="ml-0.5" />
                       </div>
                     </div>
                   </div>

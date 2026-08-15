@@ -28,19 +28,25 @@ function MyApp({ Component, pageProps }: AppProps) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setFullscreen(false)
+        if (isFullscreen) {
+          setFullscreen(false);
+        } else {
+          if (typeof window !== "undefined" && window.ipc) {
+            window.ipc.invoke('request-quit');
+          }
+        }
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [setFullscreen])
+  }, [isFullscreen, setFullscreen])
 
   const showNav = hasSidebar && !isFullscreen
 
   return (
     <ThemeProvider attribute="class" defaultTheme="dark">
       <AuthProvider>
-      <div className={`${poppins.variable} font-sans min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex`}>
+      <div className={`${poppins.variable} font-sans min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100`}>
         <Toaster 
           position="top-right" 
           toastOptions={{
@@ -61,7 +67,7 @@ function MyApp({ Component, pageProps }: AppProps) {
       />
       {showNav && <Sidebar heading={isAdmin ? "Admin" : "Maintenance"} />}
       
-      <div className={`flex-1 flex flex-col transition-all duration-300 ${showNav ? (isSidebarOpen ? "ml-72" : "ml-20") : ""}`}>
+      <div className={`flex flex-col min-h-screen transition-all duration-300 ${showNav ? (isSidebarOpen ? "ml-[260px]" : "ml-20") : ""}`}>
         {showNav && <TopBar />}
         
         <AnimatePresence mode="wait">

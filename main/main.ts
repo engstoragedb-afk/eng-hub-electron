@@ -34,23 +34,6 @@ app.disableHardwareAcceleration()
     icon: isProd ? undefined : path.join(import.meta.dirname, '../renderer/public/images/icon.png'),
   })
 
-  mainWindow.webContents.on('before-input-event', (event, input) => {
-    if (input.key === 'Escape' && input.type === 'keyDown') {
-      const response = dialog.showMessageBoxSync(mainWindow, {
-        type: 'question',
-        buttons: ['Batal', 'Keluar'],
-        defaultId: 0,
-        cancelId: 0,
-        title: 'Konfirmasi Keluar',
-        message: 'Apakah Anda yakin ingin keluar dari aplikasi?'
-      })
-      if (response === 1) {
-        app.quit()
-      }
-      event.preventDefault()
-    }
-  })
-
   if (isProd) {
     await mainWindow.loadURL('app://./home')
   } else {
@@ -67,6 +50,25 @@ app.on('window-all-closed', () => {
 ipcMain.on('message', async (event, arg) => {
   event.reply('message', `${arg} World!`)
 })
+
+ipcMain.handle('request-quit', () => {
+  const windows = require('electron').BrowserWindow.getAllWindows();
+  const win = windows.length > 0 ? windows[0] : null;
+  if (!win) return;
+  
+  const response = dialog.showMessageBoxSync(win, {
+    type: 'question',
+    buttons: ['Batal', 'Keluar'],
+    defaultId: 0,
+    cancelId: 0,
+    title: 'Konfirmasi Keluar',
+    message: 'Apakah Anda yakin ingin keluar dari aplikasi?'
+  });
+  
+  if (response === 1) {
+    app.quit();
+  }
+});
 
 // Auto Updater Setup
 const store = new Store({
@@ -114,7 +116,13 @@ autoUpdater.on('error', (err) => {
 });
 
 ipcMain.handle('check-for-updates', async () => {
-  if (!app.isPackaged) return { status: 'dev-mode' };
+  if (!app.isPackaged) {
+    sendUpdateStatus('checking');
+    setTimeout(() => {
+      sendUpdateStatus('up-to-date');
+    }, 1500);
+    return { status: 'dev-mode' };
+  }
   try {
     const result = await autoUpdater.checkForUpdates();
     return {
@@ -122,6 +130,7 @@ ipcMain.handle('check-for-updates', async () => {
       version: result?.updateInfo?.version
     };
   } catch (err: any) {
+    sendUpdateStatus('error', { message: err.message });
     return { status: 'error', message: err.message };
   }
 });
