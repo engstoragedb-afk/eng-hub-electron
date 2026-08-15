@@ -22,8 +22,12 @@ class AuditLogService extends Service<IAuditLog, IAuditLogRepository> implements
         return this.repository.getLatest(limit, action);
     }
 
-    async getAllLogs(params?: { page?: number; limit?: number; search?: string; action?: string }): Promise<{ data: IAuditLog[]; totalRow: number; page: number; limit: number }> {
+    async getAllLogs(params?: { page?: number; limit?: number; search?: string; action?: string; unit?: string }): Promise<{ data: IAuditLog[]; totalRow: number; page: number; limit: number }> {
         return this.repository.getAll(params);
+    }
+
+    async cleanupHistory(days: number, action?: string): Promise<any> {
+        return (this.repository as any).cleanupHistory(days, action);
     }
 }
 

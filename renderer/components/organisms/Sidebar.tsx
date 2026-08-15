@@ -125,6 +125,11 @@ export default function Sidebar({ heading = "Admin" }: SidebarProps) {
                     href={item.href}
                     prefetch={false}
                     title={!isSidebarOpen ? item.label : undefined}
+                    onClick={() => {
+                      if (item.href === "/maintenance/operator") {
+                        sessionStorage.removeItem("operator_filters");
+                      }
+                    }}
                     className={`relative flex items-center gap-3 rounded-xl transition-all duration-200 overflow-hidden whitespace-nowrap group ${
                       isActive
                         ? "bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 shadow-sm border border-slate-200/50 dark:border-white/5 font-semibold"

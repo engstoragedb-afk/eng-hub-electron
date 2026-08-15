@@ -22,7 +22,7 @@ export class AuditLogRepository extends Repository<IAuditLog> implements IAuditL
         return resData.map((item: any) => AuditLog.create(item).unmarshall());
     }
 
-    async getAll(params?: { page?: number; limit?: number; search?: string; action?: string }): Promise<{ data: IAuditLog[]; totalRow: number; page: number; limit: number }> {
+    async getAll(params?: { page?: number; limit?: number; search?: string; action?: string; unit?: string }): Promise<{ data: IAuditLog[]; totalRow: number; page: number; limit: number }> {
         const { data } = await this.restApi.axios.get(this.baseUrl, { params });
         const resData = data.data?.data || data.data || [];
         const totalRow = data.data?.totalRow || 0;
@@ -37,6 +37,11 @@ export class AuditLogRepository extends Repository<IAuditLog> implements IAuditL
             page,
             limit
         };
+    }
+
+    async cleanupHistory(days: number, action?: string): Promise<any> {
+        const { data } = await this.restApi.axios.delete(`${this.baseUrl}/cleanup`, { params: { days, action } });
+        return data;
     }
 }
 

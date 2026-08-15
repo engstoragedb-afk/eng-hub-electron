@@ -3,10 +3,11 @@ import Head from "next/head";
 import MaintenanceLayout from "@/components/organisms/MaintenanceLayout";
 import SectionHeading from "@/components/atoms/SectionHeading";
 import { auditLogService } from "@/services/audit-log-service";
+import { unitService } from "@/services/unit-service";
 import { IAuditLog } from "@/domain/models/audit-log";
 import { useRouter } from "next/router";
 import { ACTIONS } from "@/common/utils/action";
-import { FaExclamationTriangle, FaSearch, FaChevronRight, FaRegClock, FaWrench } from "react-icons/fa";
+import { FaExclamationTriangle, FaSearch, FaChevronRight, FaRegClock, FaWrench, FaChevronDown, FaTrash, FaFilter } from "react-icons/fa";
 
 export default function PeringatanServisPage() {
   const router = useRouter();
@@ -23,23 +24,64 @@ export default function PeringatanServisPage() {
     return () => clearTimeout(timer);
   }, [search]);
 
+  const [unitFilter, setUnitFilter] = useState("Semua");
+  const [masterUnits, setMasterUnits] = useState<any[]>([]);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isCleanupDropdownOpen, setIsCleanupDropdownOpen] = useState(false);
+
+  useEffect(() => {
+    const closeDropdown = () => {
+      setIsDropdownOpen(false);
+      setIsCleanupDropdownOpen(false);
+    };
+    window.addEventListener('click', closeDropdown);
+    return () => window.removeEventListener('click', closeDropdown);
+  }, []);
+
+  const handleCleanup = async (days: number) => {
+    if (!confirm(`Apakah Anda yakin ingin menghapus histori peringatan yang usianya lebih dari ${days} hari?`)) return;
+    try {
+      await auditLogService.cleanupHistory(days, ACTIONS.CRON_APL_WARNING);
+      // refetch logs
+      const res = await auditLogService.getAllLogs({
+        page: currentPage,
+        limit: itemsPerPage,
+        search: debouncedSearch,
+        action: ACTIONS.CRON_APL_WARNING,
+        unit: unitFilter !== "Semua" ? unitFilter : undefined
+      });
+      setLogs(res.data);
+      setTotalRow(res.totalRow);
+    } catch (err) {
+      console.error(err);
+      alert("Gagal menghapus histori peringatan.");
+    }
+  };
+
+  useEffect(() => {
+    unitService.getAllUnits()
+      .then(res => setMasterUnits(res || []))
+      .catch(err => console.error(err));
+  }, []);
+
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch]);
+  }, [debouncedSearch, unitFilter]);
 
   useEffect(() => {
     auditLogService.getAllLogs({
       page: currentPage,
       limit: itemsPerPage,
       search: debouncedSearch,
-      action: ACTIONS.CRON_APL_WARNING
+      action: ACTIONS.CRON_APL_WARNING,
+      unit: unitFilter !== "Semua" ? unitFilter : undefined
     })
     .then((res) => {
       setLogs(res.data);
       setTotalRow(res.totalRow);
     })
     .catch((err) => console.error("Failed to fetch logs:", err));
-  }, [currentPage, debouncedSearch]);
+  }, [currentPage, debouncedSearch, unitFilter]);
 
   const totalPages = Math.ceil(totalRow / itemsPerPage) || 1;
 
@@ -71,19 +113,114 @@ export default function PeringatanServisPage() {
             />
           </div>
 
-          <div className="mb-6 rounded-2xl border border-slate-200 dark:border-white/5 bg-white dark:bg-slate-900/60 p-2 shadow-sm">
-            <div className="relative flex items-center">
-              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                <FaSearch className="text-slate-400" />
+          <div className="mb-6 flex gap-3">
+            <div className="flex-1 rounded-2xl border border-slate-200 dark:border-white/5 bg-white dark:bg-slate-900/60 p-2 shadow-sm">
+              <div className="relative flex items-center">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
+                  <FaSearch className="text-slate-400" />
+                </div>
+                <input
+                  id="searchInput"
+                  type="text"
+                  placeholder="Cari kode unit atau nama peringatan..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full rounded-xl bg-transparent py-2 pl-11 pr-4 text-sm text-slate-900 dark:text-slate-100 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-sky-500/50 transition-all"
+                />
               </div>
-              <input
-                id="searchInput"
-                type="text"
-                placeholder="Cari kode unit atau nama peringatan..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-xl bg-transparent py-3 pl-11 pr-4 text-sm text-slate-900 dark:text-slate-100 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-sky-500/50 transition-all"
-              />
+            </div>
+            <div className="relative">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsDropdownOpen(!isDropdownOpen);
+                  setIsCleanupDropdownOpen(false);
+                }}
+                className="flex items-center justify-between w-48 h-full rounded-2xl border border-slate-200 dark:border-white/5 bg-white dark:bg-slate-900/60 px-4 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none shadow-sm cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              >
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <FaFilter className="text-slate-400 shrink-0 text-xs" />
+                  <span className="truncate">
+                    {unitFilter === "Semua" 
+                      ? "Semua Unit" 
+                      : masterUnits.find(u => u.id === unitFilter)?.name || "Semua Unit"}
+                  </span>
+                </div>
+                <FaChevronDown className={`text-slate-400 transition-transform ${isDropdownOpen ? "rotate-180" : ""}`} />
+              </button>
+              
+              {isDropdownOpen && (
+                <div className="absolute right-0 top-full mt-2 w-full max-h-60 overflow-y-auto rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-white/10 z-20 py-1">
+                  <button
+                    onClick={() => {
+                      setUnitFilter("Semua");
+                      setIsDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${unitFilter === "Semua" ? "bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400 font-semibold" : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50"}`}
+                  >
+                    Semua Unit
+                  </button>
+                  {masterUnits.map(unit => (
+                    <button
+                      key={unit.id}
+                      onClick={() => {
+                        setUnitFilter(unit.id);
+                        setIsDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${unitFilter === unit.id ? "bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400 font-semibold" : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50"}`}
+                    >
+                      {unit.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <div className="relative">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsCleanupDropdownOpen(!isCleanupDropdownOpen);
+                  setIsDropdownOpen(false);
+                }}
+                className={`flex items-center justify-center w-12 h-full rounded-2xl border transition-all outline-none shadow-sm cursor-pointer ${isCleanupDropdownOpen ? 'bg-red-50 border-red-200 text-red-500 dark:bg-red-500/10 dark:border-red-500/30 dark:text-red-400' : 'bg-white border-slate-200 text-slate-500 hover:text-red-500 hover:border-red-200 hover:bg-red-50 dark:bg-slate-900/60 dark:border-white/5 dark:text-slate-400 dark:hover:text-red-400 dark:hover:border-red-500/30 dark:hover:bg-red-500/10'}`}
+                title="Hapus Histori Peringatan"
+              >
+                <FaTrash className="text-sm" />
+              </button>
+              
+              {isCleanupDropdownOpen && (
+                <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl bg-white dark:bg-slate-800 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] dark:shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] border border-slate-100 dark:border-white/10 z-20 overflow-hidden py-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="px-3 py-2">
+                    <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest px-2 mb-1">
+                      Bersihkan Histori
+                    </p>
+                    <div className="space-y-0.5">
+                      <button
+                        onClick={() => handleCleanup(3)}
+                        className="flex items-center w-full px-2 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400 rounded-lg transition-colors group"
+                      >
+                        <FaRegClock className="mr-2 text-slate-400 group-hover:text-red-500 transition-colors" />
+                        <span>Lebih dari 3 Hari</span>
+                      </button>
+                      <button
+                        onClick={() => handleCleanup(7)}
+                        className="flex items-center w-full px-2 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400 rounded-lg transition-colors group"
+                      >
+                        <FaRegClock className="mr-2 text-slate-400 group-hover:text-red-500 transition-colors" />
+                        <span>Lebih dari 7 Hari</span>
+                      </button>
+                      <button
+                        onClick={() => handleCleanup(30)}
+                        className="flex items-center w-full px-2 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400 rounded-lg transition-colors group"
+                      >
+                        <FaRegClock className="mr-2 text-slate-400 group-hover:text-red-500 transition-colors" />
+                        <span>Lebih dari 30 Hari</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
