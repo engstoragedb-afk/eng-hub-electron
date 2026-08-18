@@ -75,7 +75,7 @@ const store = new Store({
   defaults: { updateChannel: 'latest' }
 });
 
-autoUpdater.autoDownload = false;
+autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = true;
 autoUpdater.channel = store.get('updateChannel', 'latest') as string;
 
