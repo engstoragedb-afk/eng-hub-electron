@@ -7,3 +7,4 @@ export * from "./location-service";
 export * from "./user-service";
 export * from "./operator-service";
 export * from "./audit-log-service";
+export * from "./apl-history-service";

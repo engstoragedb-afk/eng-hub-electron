@@ -62,7 +62,7 @@ export default function Lightbox({ isOpen, onClose, imageSrc, title, description
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-50 dark:bg-slate-950/90 p-6 backdrop-blur-md">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-50 dark:bg-slate-950/90 p-6">
       <div className="relative w-full max-w-5xl rounded-3xl border border-slate-700/80 bg-slate-50 dark:bg-slate-950/95 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
         {/* Header/Controls */}
         <div className="absolute right-4 top-4 z-10 flex items-center gap-2 bg-slate-50 dark:bg-slate-950/50 p-1.5 rounded-full backdrop-blur-sm border border-slate-200 dark:border-white/5">

@@ -3,4 +3,5 @@ import { IService } from "./service";
 
 export interface ILocationService extends IService<ILocation> {
     getLocations(): Promise<ILocation[]>;
+    createLocation(name: string): Promise<ILocation>;
 }

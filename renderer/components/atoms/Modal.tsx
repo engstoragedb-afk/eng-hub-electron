@@ -24,7 +24,7 @@ export default function Modal({ open, title, subtitle, onClose, children }: Moda
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-50 dark:bg-slate-950/80 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-50 dark:bg-slate-950/80 p-4">
       <div className="w-full max-w-2xl overflow-hidden rounded-3xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900 shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-300 dark:border-white/10 bg-slate-100 dark:bg-slate-800/60 px-6 py-5">
           <div>

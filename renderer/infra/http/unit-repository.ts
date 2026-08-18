@@ -38,6 +38,11 @@ export class UnitRepository extends Repository<IUnit> implements IUnitRepository
         };
     }
 
+    async getUnitsDetailsByCategory(categoryId?: string): Promise<any[]> {
+        const { data } = await this.restApi.axios.get(`${this.baseUrl}/details/category`, { params: { categoryId } });
+        return data.data || data || [];
+    }
+
     async updateUnit(id: string, data: Partial<IUnit>): Promise<IUnit> {
         const res = await this.restApi.axios.patch(`${this.baseUrl}/${id}`, data);
         return Unit.create(res.data.data || res.data).unmarshall();

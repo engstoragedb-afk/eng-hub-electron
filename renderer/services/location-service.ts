@@ -21,6 +21,10 @@ class LocationService extends Service<ILocation, ILocationRepository> implements
     async getLocations(): Promise<ILocation[]> {
         return this.repository.getLocations();
     }
+
+    async createLocation(name: string): Promise<ILocation> {
+        return this.repository.createLocation(name);
+    }
 }
 
 export const locationService = LocationService.getInstance(locationRepository);

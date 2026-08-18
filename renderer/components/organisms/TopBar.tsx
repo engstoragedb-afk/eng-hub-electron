@@ -1,8 +1,9 @@
-import { FaExpand, FaSun, FaMoon, FaDownload, FaSync } from "react-icons/fa";
+import { FaExpand, FaSun, FaMoon, FaDownload, FaSync, FaQuestionCircle, FaTimes, FaKeyboard } from "react-icons/fa";
 import { useUIStore } from "@/store/uiStore";
 // import { useRouter } from "next/router";
 import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 
 export default function TopBar() {
   const { setFullscreen } = useUIStore();
@@ -12,6 +13,38 @@ export default function TopBar() {
   const [mounted, setMounted] = useState(false);
   const [updateStatus, setUpdateStatus] = useState<"none" | "checking" | "available" | "downloading" | "downloaded" | "error" | "up-to-date">("none");
   const [updateProgress, setUpdateProgress] = useState(0);
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+
+  // Scroll lock when modal is open
+  useEffect(() => {
+    if (isShortcutsOpen) {
+      const scrollY = window.scrollY;
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.left = '0';
+      document.body.style.right = '0';
+      document.body.style.overflowY = 'scroll';
+    } else {
+      const scrollY = document.body.style.top;
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      document.body.style.overflowY = '';
+      if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY || '0') * -1);
+      }
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      document.body.style.overflowY = '';
+    };
+  }, [isShortcutsOpen]);
 
   useEffect(() => {
     setMounted(true);
@@ -131,13 +164,80 @@ export default function TopBar() {
       >
         {mounted && (theme === 'dark' ? <FaSun className="text-sm" /> : <FaMoon className="text-sm" />)}
       </button>
-      {/* <button className="h-10 w-10 overflow-hidden rounded-full border-2 border-sky-500/50 transition hover:border-sky-400 cursor-pointer">
-        <img
-          src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&backgroundColor=0284c7"
-          alt="Profile Avatar"
-          className="h-full w-full object-cover"
-        />
-      </button> */}
+
+      <button 
+        onClick={() => setIsShortcutsOpen(true)}
+        className="relative flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 transition hover:bg-slate-200 dark:bg-slate-700 hover:text-sky-500 border border-slate-200 dark:border-white/5 shadow-sm"
+        title="Panduan Keyboard Shortcut"
+      >
+        <FaQuestionCircle className="text-sm" />
+      </button>
+
+      {/* Keyboard Shortcuts Modal */}
+      {isShortcutsOpen && mounted && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] shadow-2xl flex flex-col">
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-sky-100 dark:bg-sky-500/20 text-sky-500 flex items-center justify-center">
+                  <FaKeyboard size={18} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white">Panduan Keyboard Shortcut</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">Jalan pintas untuk mempermudah navigasi aplikasi</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsShortcutsOpen(false)}
+                className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition text-slate-500"
+              >
+                <FaTimes size={16} />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto space-y-6 pr-2">
+              
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Global / Semua Halaman</h4>
+                <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-3 text-sm">
+                  <div className="font-mono bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-center font-bold text-slate-700 dark:text-slate-300 justify-self-end">ESC</div>
+                  <div className="text-slate-600 dark:text-slate-300 flex items-center">Keluar dari layar penuh atau keluar dari aplikasi.</div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Halaman Servis Unit</h4>
+                <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-3 text-sm">
+                  <div className="font-mono bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-center font-bold text-slate-700 dark:text-slate-300 justify-self-end">CTRL/CMD + F</div>
+                  <div className="text-slate-600 dark:text-slate-300 flex items-center">Membuka fitur pencarian tabel (mengambang).</div>
+                  <div className="font-mono bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-center font-bold text-slate-700 dark:text-slate-300 justify-self-end">ESC</div>
+                  <div className="text-slate-600 dark:text-slate-300 flex items-center">Menutup fitur pencarian tabel.</div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Halaman Unit Kategori & Operator</h4>
+                <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-3 text-sm">
+                  <div className="font-mono bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-center font-bold text-slate-700 dark:text-slate-300 justify-self-end">← / →</div>
+                  <div className="text-slate-600 dark:text-slate-300 flex items-center">Pindah ke halaman (pagination) sebelumnya / selanjutnya.</div>
+                  <div className="font-mono bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-center font-bold text-slate-700 dark:text-slate-300 justify-self-end">↑ / ↓</div>
+                  <div className="text-slate-600 dark:text-slate-300 flex items-center">Pindah ke tab kategori unit sebelumnya / selanjutnya.</div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Halaman Detail Unit</h4>
+                <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-3 text-sm">
+                  <div className="font-mono bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-center font-bold text-slate-700 dark:text-slate-300 justify-self-end">Q</div>
+                  <div className="text-slate-600 dark:text-slate-300 flex items-center">Batal mengedit nilai (lepas fokus kursor) saat mode edit grafik riwayat pemeliharaan.</div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </header>
   );
 }

@@ -4,4 +4,5 @@ import { IRepository } from "./repository";
 
 export interface ILocationRepository extends IRepository<ILocation> {
     getLocations(): Promise<ILocation[]>;
+    createLocation(name: string): Promise<ILocation>;
 }

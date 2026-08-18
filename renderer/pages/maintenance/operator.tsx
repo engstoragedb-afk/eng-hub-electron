@@ -801,7 +801,7 @@ export default function MaintenanceOperatorPage() {
 
       {/* Update Profile Modal */}
       {isUpdateProfileModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-6 backdrop-blur-sm dark:bg-slate-900/80 transition-all duration-300 ease-in-out">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-6 dark:bg-slate-900/80 transition-all duration-300 ease-in-out">
           <div className="flex w-full max-w-md flex-col overflow-hidden rounded-3xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900 shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="flex shrink-0 items-center justify-between border-b border-slate-200 dark:border-white/10 px-6 py-5">
               <div>

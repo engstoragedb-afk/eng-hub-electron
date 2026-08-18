@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
-import { FaArrowLeft, FaExpandAlt, FaTimes, FaSearchPlus, FaCrop, FaImage, FaCheckCircle, FaWrench, FaMapMarkerAlt, FaWifi, FaExclamationTriangle, FaEyeSlash } from "react-icons/fa";
+import { FaArrowLeft, FaExpandAlt, FaTimes, FaSearchPlus, FaCrop, FaImage, FaCheckCircle, FaWrench, FaMapMarkerAlt, FaWifi, FaExclamationTriangle, FaEyeSlash, FaHistory } from "react-icons/fa";
 import toast from "react-hot-toast";
 import { EGPSStatus } from "@/common/utils/status";
 
@@ -11,9 +11,11 @@ import CopyButton from "@/components/atoms/CopyButton";
 import Lightbox from "@/components/organisms/Lightbox";
 import ImageCropModal from "@/components/organisms/ImageCropModal";
 import dynamic from 'next/dynamic';
-import { unitService, aplUnitService, typeUnitService, auditLogService, locationService } from "@/services";
-import { ACTIONS } from "@/common/utils/action";
+import { unitService, typeUnitService, locationService } from "@/services";
 import { repairs } from "@/common/data/repairData";
+import GpsLogDrawer from "@/components/organisms/GpsLogDrawer";
+import HistoryReplacementDrawer from "@/components/organisms/HistoryReplacementDrawer";
+import AplEditFormModal from "@/components/organisms/AplEditFormModal";
 
 const DetailUnitChart = dynamic(() => import("@/components/organisms/DetailUnitChart"), { 
   ssr: false, 
@@ -35,50 +37,63 @@ export default function UnitDetailPage() {
   const [apiUnit, setApiUnit] = useState<any>(null);
   const [siblingUnits, setSiblingUnits] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [editingAplItem, setEditingAplItem] = useState<{category_apl_id: string, name: string, total: number, vault?: number, input: number, schedule: number} | null>(null);
+  const [editingAplItem, setEditingAplItem] = useState<{id: string, category_apl_id: string, name: string, total: number, vault?: number, input: number, schedule: number} | null>(null);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [isChartModalOpen, setIsChartModalOpen] = useState(false);
   const [isChartVisible, setIsChartVisible] = useState(false);
   const [isEditingStatus, setIsEditingStatus] = useState(false);
-  const [isSavingApl, setIsSavingApl] = useState(false);
   const [typeUnits, setTypeUnits] = useState<any[]>([]);
   const [isEditingType, setIsEditingType] = useState(false);
+  const [typeInput, setTypeInput] = useState("");
   const [isEditingLocation, setIsEditingLocation] = useState(false);
+  const [locationInput, setLocationInput] = useState("");
   const [locationOptions, setLocationOptions] = useState<any[]>([]);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
 
+  // History Drawer States
+  const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
+  const [historyAplItem, setHistoryAplItem] = useState<any>(null);
+
+  useEffect(() => {
+    const isAnyModalOpen = !!(isHistoryDrawerOpen || isChartModalOpen || editingAplItem || isCropModalOpen || isLightboxOpen);
+    if (isAnyModalOpen) {
+      const scrollY = window.scrollY;
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.left = '0';
+      document.body.style.right = '0';
+      document.body.style.overflowY = 'scroll';
+    } else {
+      const scrollY = document.body.style.top;
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      document.body.style.overflowY = '';
+      if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY || '0') * -1);
+      }
+    }
+    return () => {
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      document.body.style.overflowY = '';
+    };
+  }, [isHistoryDrawerOpen, isChartModalOpen, editingAplItem, isCropModalOpen, isLightboxOpen]);
+
+  const openHistoryDrawer = (item: any) => {
+    setHistoryAplItem(item);
+    setIsHistoryDrawerOpen(true);
+  };
+
   const [isGpsLogOpen, setIsGpsLogOpen] = useState(false);
-  const [activeGpsLogTab, setActiveGpsLogTab] = useState<'HM' | 'ERROR'>('HM');
-  const [gpsLogs, setGpsLogs] = useState<any[]>([]);
-  const [gpsLogsPage, setGpsLogsPage] = useState(1);
-  const [gpsLogsTotal, setGpsLogsTotal] = useState(0);
-  const [isFetchingGpsLogs, setIsFetchingGpsLogs] = useState(false);
-  const [isVaultFocused, setIsVaultFocused] = useState(false);
-  const gpsLogsLimit = 10;
   
   const [activeMainTab, setActiveMainTab] = useState<'JADWAL' | 'HISTORY'>('JADWAL');
   const [repairLogs, setRepairLogs] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (!isGpsLogOpen || !apiUnit) return;
-
-    const action = activeGpsLogTab === 'HM' ? ACTIONS.CRON_UPDATE_GPS_HM_HOURS : ACTIONS.CRON_FETCH_GPS_ERROR;
-    
-    setIsFetchingGpsLogs(true);
-    auditLogService.getAllLogs({
-      action,
-      search: apiUnit.id,
-      page: gpsLogsPage,
-      limit: gpsLogsLimit
-    })
-      .then(res => {
-        setGpsLogs(res.data || []);
-        setGpsLogsTotal(res.totalRow || 0);
-      })
-      .catch(console.error)
-      .finally(() => setIsFetchingGpsLogs(false));
-  }, [isGpsLogOpen, activeGpsLogTab, gpsLogsPage, apiUnit?.id]);
 
   useEffect(() => {
     if (isGpsLogOpen) {
@@ -160,37 +175,48 @@ export default function UnitDetailPage() {
     }
   };
 
-  const handleSaveAplItem = async (closeModal = false, navigateNext = false) => {
-    if (!editingAplItem || !editingAplItem.category_apl_id || editingAplItem.total === undefined) return;
-    try {
-      setIsSavingApl(true);
-      await aplUnitService.upsertAplUnit({
-        unit_id: id as string,
-        category_apl_id: editingAplItem.category_apl_id,
-        total: editingAplItem.total,
-        vault: editingAplItem.vault
-      });
-      
-      const updated = await unitService.getUnitDetails(id as string);
-      setApiUnit(updated);
-      
-      if (closeModal) {
-        setEditingAplItem(null);
-      } else if (navigateNext) {
-        const sortedAplData = updated?.aplData || [];
-        const currentIndex = sortedAplData.findIndex((item: any) => item.category_apl_id === editingAplItem.category_apl_id);
-        if (currentIndex !== -1) {
-          let nextIndex = currentIndex + 1;
-          if (nextIndex >= sortedAplData.length) nextIndex = 0;
-          setEditingAplItem(sortedAplData[nextIndex]);
-        }
-      }
-    } catch (err) {
-      console.error("Failed to save APL unit data:", err);
-      alert("Gagal menyimpan data APL.");
-    } finally {
-      setIsSavingApl(false);
+  const handleTypeSelectOrCreate = async (value: string) => {
+    const currentType = typeof apiUnit?.type === 'string' ? apiUnit.type : (apiUnit?.type?.name || "");
+    if (!value || value === currentType) {
+      setIsEditingType(false);
+      return;
     }
+    const existingType = typeUnits.find(t => t.name.toLowerCase() === value.toLowerCase());
+    if (existingType) {
+      await handleUpdateUnit({ type_id: existingType.id });
+    } else {
+      try {
+        const newType = await typeUnitService.createTypeUnit(value);
+        setTypeUnits(prev => [...prev, newType]);
+        await handleUpdateUnit({ type_id: newType.id });
+      } catch (err) {
+        console.error("Gagal menambahkan Type Unit baru", err);
+        toast.error("Gagal menambahkan Type Unit baru");
+      }
+    }
+    setIsEditingType(false);
+  };
+
+  const handleLocationSelectOrCreate = async (value: string) => {
+    const currentLoc = typeof apiUnit?.location === 'string' ? apiUnit.location : (apiUnit?.location?.name || "");
+    if (!value || value === currentLoc) {
+      setIsEditingLocation(false);
+      return;
+    }
+    const existingLoc = locationOptions.find(loc => loc.name.toLowerCase() === value.toLowerCase());
+    if (existingLoc) {
+      await handleUpdateUnit({ location_id: existingLoc.id });
+    } else {
+      try {
+        const newLoc = await locationService.createLocation(value);
+        setLocationOptions(prev => [...prev, newLoc]);
+        await handleUpdateUnit({ location_id: newLoc.id });
+      } catch (err) {
+        console.error("Gagal menambahkan Lokasi baru", err);
+        toast.error("Gagal menambahkan Lokasi baru");
+      }
+    }
+    setIsEditingLocation(false);
   };
 
   const handleNavigateAplItem = (direction: 'prev' | 'next') => {
@@ -369,6 +395,14 @@ export default function UnitDetailPage() {
     indexAxis: 'y' as const,
     responsive: true,
     maintainAspectRatio: false,
+    animation: false as const,
+    animations: {
+      colors: false,
+      x: false,
+    },
+    transitions: {
+      active: { animation: { duration: 0 } },
+    },
     onClick: (event: any, elements: any[]) => {
       if (elements.length > 0) {
         const index = elements[0].index;
@@ -379,7 +413,7 @@ export default function UnitDetailPage() {
     layout: {
       padding: {
         left: 20,
-        right: 30
+        right: 50
       }
     },
     plugins: {
@@ -394,7 +428,8 @@ export default function UnitDetailPage() {
       },
     },
     interaction: {
-      mode: 'y' as const,
+      mode: 'nearest' as const,
+      axis: 'y' as const,
       intersect: false,
     },
     scales: {
@@ -585,7 +620,20 @@ export default function UnitDetailPage() {
               </div>
               <div className="mt-4">
                 {activeMainTab === 'JADWAL' ? (
-                  <div className="w-full relative" style={{ height: `${sortedAplData.length * 45 + 60}px` }}>
+                  <div className="w-full relative group" style={{ height: `${sortedAplData.length * 45 + 60}px` }}>
+                    <div className="absolute right-0 top-0 bottom-0 w-10 z-10 flex flex-col justify-around py-[30px] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      {sortedAplData.map((item: any, i: number) => (
+                        <div key={i} className="flex-1 flex justify-center items-center">
+                           <button 
+                             onClick={(e) => { e.stopPropagation(); openHistoryDrawer(item); }}
+                             className="p-2 rounded-full bg-white dark:bg-slate-800 text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-900/50 hover:scale-110 transition-all shadow-sm border border-slate-200 dark:border-white/10 pointer-events-auto"
+                             title="Riwayat Penggantian"
+                           >
+                             <FaHistory size={12} />
+                           </button>
+                        </div>
+                      ))}
+                    </div>
                     <DetailUnitChart chartData={chartData} chartOptions={chartOptions} />
                   </div>
                 ) : (
@@ -643,26 +691,41 @@ export default function UnitDetailPage() {
                   <span>Type Unit</span>
                   <span
                     className="font-semibold text-slate-900 dark:text-slate-100 cursor-pointer"
-                    onDoubleClick={() => setIsEditingType(true)}
+                    onDoubleClick={() => {
+                      setTypeInput(typeof unit.type === 'string' ? unit.type : (unit.type?.name || ""));
+                      setIsEditingType(true);
+                    }}
                     title="Klik 2 kali untuk mengedit type unit"
                   >
                     {isEditingType ? (
                       <div 
                         className="relative" 
                         tabIndex={0} 
-                        autoFocus 
                         onBlur={(e) => {
                           if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                            setIsEditingType(false);
+                            handleTypeSelectOrCreate(typeInput);
                           }
                         }}
                       >
-                        <div className="w-56 rounded-lg border border-sky-400 dark:border-sky-500 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs text-slate-900 dark:text-slate-100 shadow-sm cursor-pointer flex justify-between items-center">
-                            <span className="truncate">{unit.type?.name || "Pilih Type"}</span>
+                        <div className="w-56 rounded-lg border border-sky-400 dark:border-sky-500 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs text-slate-900 dark:text-slate-100 shadow-sm flex justify-between items-center">
+                            <input 
+                              autoFocus
+                              type="text" 
+                              value={typeInput} 
+                              onChange={(e) => setTypeInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleTypeSelectOrCreate(typeInput);
+                                }
+                              }}
+                              className="w-full bg-transparent outline-none truncate" 
+                              placeholder="Ketik type unit..." 
+                            />
                             <span className="text-[10px] ml-2 text-slate-400">▼</span>
                         </div>
                         <ul className="absolute z-50 right-0 top-full mt-1 max-h-48 w-64 overflow-y-auto rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 shadow-xl text-left">
-                          {typeUnits.map((t: any) => (
+                          {typeUnits.filter(t => t.name.toLowerCase().includes(typeInput.toLowerCase())).map((t: any) => (
                             <li
                               key={t.id}
                               onMouseDown={(e) => {
@@ -677,10 +740,21 @@ export default function UnitDetailPage() {
                               {t.name}
                             </li>
                           ))}
+                          {typeInput && !typeUnits.some(t => t.name.toLowerCase() === typeInput.toLowerCase()) && (
+                            <li
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                handleTypeSelectOrCreate(typeInput);
+                              }}
+                              className="cursor-pointer px-3 py-2 text-xs transition-colors whitespace-normal leading-relaxed text-sky-600 hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-sky-900/30 font-semibold"
+                            >
+                              + Tambah "{typeInput}"
+                            </li>
+                          )}
                         </ul>
                       </div>
                     ) : (
-                      unit.type?.name || "-"
+                      typeof unit.type === 'string' ? unit.type : (unit.type?.name || "-")
                     )}
                   </span>
                 </div>
@@ -688,30 +762,47 @@ export default function UnitDetailPage() {
                   <span>Lokasi</span>
                   <span 
                     className="font-semibold text-slate-900 dark:text-slate-100 cursor-pointer hover:text-sky-500 transition"
-                    onDoubleClick={() => setIsEditingLocation(true)}
+                    onDoubleClick={() => {
+                      setLocationInput(typeof unit.location === 'string' ? unit.location : (unit.location?.name || ""));
+                      setIsEditingLocation(true);
+                    }}
                   >
                     {isEditingLocation ? (
                       <div 
                         className="relative" 
                         tabIndex={0} 
-                        autoFocus 
                         onBlur={(e) => {
                           if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                            setIsEditingLocation(false);
+                            handleLocationSelectOrCreate(locationInput);
                           }
                         }}
                       >
-                        <div className="w-56 rounded-lg border border-sky-400 dark:border-sky-500 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs text-slate-900 dark:text-slate-100 shadow-sm cursor-pointer flex justify-between items-center">
-                            <span className="truncate">{unit.location?.name || "Pilih Lokasi"}</span>
+                        <div className="w-56 rounded-lg border border-sky-400 dark:border-sky-500 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs text-slate-900 dark:text-slate-100 shadow-sm flex justify-between items-center">
+                            <input 
+                              autoFocus
+                              type="text" 
+                              value={locationInput} 
+                              onChange={(e) => setLocationInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleLocationSelectOrCreate(locationInput);
+                                }
+                              }}
+                              className="w-full bg-transparent outline-none truncate" 
+                              placeholder="Ketik lokasi..." 
+                            />
                             <span className="text-[10px] ml-2 text-slate-400">▼</span>
                         </div>
-                        <ul className="absolute z-50 right-0 top-full mt-1 max-h-48 w-64 overflow-y-auto rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 shadow-xl">
-                          {locationOptions.map((loc: any) => (
+                        <ul className="absolute z-50 right-0 top-full mt-1 max-h-48 w-64 overflow-y-auto rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 shadow-xl text-left">
+                          {locationOptions.filter(loc => loc.name.toLowerCase().includes(locationInput.toLowerCase())).map((loc: any) => (
                             <li
                               key={loc.id}
                               onMouseDown={(e) => {
                                 e.preventDefault();
-                                handleUpdateUnit({ location_id: loc.id });
+                                if (loc.id !== (unit.location?.id || "")) {
+                                  handleUpdateUnit({ location_id: loc.id });
+                                }
                                 setIsEditingLocation(false);
                               }}
                               className={`cursor-pointer px-3 py-2 text-xs transition-colors whitespace-normal leading-relaxed ${unit.location?.id === loc.id ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300 font-medium' : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-700'}`}
@@ -719,10 +810,21 @@ export default function UnitDetailPage() {
                               {loc.name}
                             </li>
                           ))}
+                          {locationInput && !locationOptions.some(loc => loc.name.toLowerCase() === locationInput.toLowerCase()) && (
+                            <li
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                handleLocationSelectOrCreate(locationInput);
+                              }}
+                              className="cursor-pointer px-3 py-2 text-xs transition-colors whitespace-normal leading-relaxed text-sky-600 hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-sky-900/30 font-semibold"
+                            >
+                              + Tambah "{locationInput}"
+                            </li>
+                          )}
                         </ul>
                       </div>
                     ) : (
-                      unit.location?.name ?? '-'
+                      typeof unit.location === 'string' ? unit.location : (unit.location?.name ?? '-')
                     )}
                   </span>
                 </div>
@@ -827,177 +929,17 @@ export default function UnitDetailPage() {
         </section>
       </MaintenanceLayout>
 
-      {/* Modal Edit APL Input */}
-      {editingAplItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-sm rounded-3xl bg-slate-50 dark:bg-slate-900 p-6 shadow-xl border border-slate-300 dark:border-white/10">
-            <div className="mb-6 flex flex-col gap-3">
-              <div className="flex items-start justify-between">
-                {(() => {
-                  const sortedData = apiUnit?.aplData || [];
-                  const total = sortedData.length;
-                  const currentIdx = sortedData.findIndex((item: any) => item.category_apl_id === editingAplItem.category_apl_id);
-                  if (total > 0 && currentIdx !== -1) {
-                    return (
-                      <div className="flex flex-col gap-2">
-                        <span className="text-xs font-bold text-sky-500 dark:text-sky-400 uppercase tracking-widest">
-                          Langkah {currentIdx + 1} / {total}
-                        </span>
-                        <div className="flex gap-1.5 flex-wrap max-w-[200px]">
-                          {Array.from({ length: total }).map((_, idx) => (
-                            <div 
-                              key={idx} 
-                              className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentIdx ? 'w-6 bg-sky-500' : idx < currentIdx ? 'w-2 bg-sky-200 dark:bg-sky-800' : 'w-2 bg-slate-200 dark:bg-slate-700/50'}`}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  }
-                  return <div />;
-                })()}
-
-                <div className="flex items-center gap-1 -mt-1 -mr-2">
-                  <button 
-                    type="button"
-                    onClick={() => handleNavigateAplItem('prev')}
-                    className="p-2 text-slate-400 hover:bg-slate-200 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100 rounded-full transition cursor-pointer"
-                    title="Sebelumnya"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => handleNavigateAplItem('next')}
-                    className="p-2 text-slate-400 hover:bg-slate-200 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100 rounded-full transition cursor-pointer"
-                    title="Selanjutnya"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-
-              <h3 className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 w-full mt-2">
-                {editingAplItem.name}
-              </h3>
-            </div>
-            <form onSubmit={(e) => { e.preventDefault(); handleSaveAplItem(false, true); }} className="space-y-4">
-              <div>
-                <label className="mb-1 block text-sm text-slate-500 dark:text-slate-400">
-                  Sisa Hitungan Sistem (Tampil)
-                </label>
-                <input
-                  type="number"
-                  readOnly
-                  className="w-full rounded-xl border border-slate-300 bg-slate-200 p-3 text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 dark:border-white/10 dark:bg-slate-800 dark:text-slate-100 opacity-70 cursor-not-allowed"
-                  value={editingAplItem.input}
-                />
-              </div>
-              <div>
-                <div className="mb-1 flex items-center justify-between">
-                  <label className="block text-sm text-slate-500 dark:text-slate-400">
-                    Input Manual
-                  </label>
-                  {editingAplItem.total === undefined && (
-                    <span className="text-[10px] font-semibold text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-0.5 rounded-md">
-                      ⚠️ Perlu Diisi
-                    </span>
-                  )}
-                </div>
-                <input
-                  id="apl-input-total"
-                  type="number"
-                  autoFocus
-                  value={editingAplItem.total !== undefined ? editingAplItem.total : ""}
-                  onChange={(e) => setEditingAplItem({ ...editingAplItem, total: e.target.value === "" ? undefined as any : Number(e.target.value) })}
-                  onKeyDown={(e) => {
-                    if (e.key === 'ArrowDown') {
-                      e.preventDefault();
-                      document.getElementById('apl-input-vault')?.focus();
-                    } else if (e.key === 'ArrowUp') {
-                      e.preventDefault();
-                      document.getElementById('apl-input-vault')?.focus();
-                    }
-                  }}
-                  className={`w-full rounded-xl border ${editingAplItem.total === undefined ? "border-amber-400 dark:border-amber-500/50 focus:border-amber-500 focus:ring-amber-500" : "border-slate-300 dark:border-white/10 focus:border-sky-500 focus:ring-sky-500"} bg-white p-3 text-slate-900 focus:outline-none focus:ring-1 dark:bg-slate-800 dark:text-slate-100 transition`}
-                  placeholder="Masukkan angka sebenarnya..."
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm text-slate-500 dark:text-slate-400">
-                  Vault*
-                </label>
-                <input
-                  id="apl-input-vault"
-                  type="number"
-                  value={editingAplItem.vault !== undefined ? editingAplItem.vault : ""}
-                  onChange={(e) => setEditingAplItem({ ...editingAplItem, vault: e.target.value === "" ? undefined : Number(e.target.value) })}
-                  onFocus={() => setIsVaultFocused(true)}
-                  onBlur={() => setTimeout(() => setIsVaultFocused(false), 200)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'ArrowUp') {
-                      e.preventDefault();
-                      document.getElementById('apl-input-total')?.focus();
-                    } else if (e.key === 'ArrowDown') {
-                      e.preventDefault();
-                      document.getElementById('apl-input-total')?.focus();
-                    }
-                  }}
-                  className="w-full rounded-xl border border-slate-300 dark:border-white/10 bg-white p-3 text-slate-900 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 dark:bg-slate-800 dark:text-slate-100 transition"
-                  placeholder="Masukkan jumlah vault..."
-                />
-                {isVaultFocused && (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {[150, 300, 500, 1000, 2000, 4000, 5000].map(val => (
-                      <button
-                        key={val}
-                        type="button"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          setEditingAplItem({ ...editingAplItem, vault: val });
-                          setIsVaultFocused(false);
-                        }}
-                        className="cursor-pointer rounded-full bg-sky-100 px-3 py-1 text-xs font-medium text-sky-600 hover:bg-sky-200 dark:bg-sky-500/20 dark:text-sky-400 dark:hover:bg-sky-500/30 transition-colors"
-                      >
-                        {val}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="mt-6 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setEditingAplItem(null)}
-                  className="rounded-xl px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-800 transition cursor-pointer"
-                >
-                  Tutup
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSavingApl}
-                  className={`rounded-xl px-4 py-2 text-sm font-medium text-white transition shadow-lg cursor-pointer ${isSavingApl ? 'bg-sky-400 cursor-not-allowed shadow-none' : 'bg-sky-500 hover:bg-sky-600 shadow-sky-500/30'}`}
-                >
-                  {isSavingApl ? (
-                    <div className="flex items-center gap-2">
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                      Menyimpan...
-                    </div>
-                  ) : (
-                    "Simpan"
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <AplEditFormModal
+        key={editingAplItem?.category_apl_id || 'empty'}
+        editingAplItem={editingAplItem}
+        setEditingAplItem={setEditingAplItem}
+        apiUnit={apiUnit}
+        setApiUnit={setApiUnit}
+        onClose={() => setEditingAplItem(null)}
+        setPreviewImageUrl={setPreviewImageUrl}
+      />
       {isChartModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 sm:p-8">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4 sm:p-8">
           <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-3xl p-6 w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl">
             <div className="flex justify-between items-center mb-6">
               <div>
@@ -1029,6 +971,23 @@ export default function UnitDetailPage() {
         </div>
       )}
 
+      {previewImageUrl && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4" onClick={() => setPreviewImageUrl(null)}>
+          <button 
+            className="absolute top-6 right-6 text-white/70 hover:text-white bg-white/10 hover:bg-rose-500 rounded-full p-3 transition"
+            onClick={(e) => { e.stopPropagation(); setPreviewImageUrl(null); }}
+          >
+            <FaTimes size={24} />
+          </button>
+          <img 
+            src={previewImageUrl} 
+            alt="Preview Zoom" 
+            className="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl animate-in zoom-in-95 duration-200" 
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+
       <Lightbox
         isOpen={isLightboxOpen}
         onClose={() => setIsLightboxOpen(false)}
@@ -1054,106 +1013,19 @@ export default function UnitDetailPage() {
       />
 
       {/* GPS Log Drawer */}
-      <div 
-        className={`fixed inset-0 z-50 transition-opacity duration-300 ${isGpsLogOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-      >
-        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsGpsLogOpen(false)} />
-        <div 
-          className={`absolute inset-y-0 right-0 w-full max-w-lg bg-white dark:bg-slate-900 shadow-2xl transition-transform duration-300 ease-in-out flex flex-col ${isGpsLogOpen ? 'translate-x-0' : 'translate-x-full'}`}
-        >
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-white/10">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">HISTORY GPS</h3>
-            <button onClick={() => setIsGpsLogOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-full hover:bg-slate-100 dark:hover:bg-white/5 transition">
-              <FaTimes />
-            </button>
-          </div>
-          <div className="flex px-6 pt-4 gap-4 border-b border-slate-200 dark:border-white/10">
-            <button
-              onClick={() => { setActiveGpsLogTab('HM'); setGpsLogsPage(1); }}
-              className={`pb-3 text-sm font-semibold transition border-b-2 ${activeGpsLogTab === 'HM' ? 'border-sky-500 text-sky-500' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-            >
-              Update HM / Jam
-            </button>
-            <button
-              onClick={() => { setActiveGpsLogTab('ERROR'); setGpsLogsPage(1); }}
-              className={`pb-3 text-sm font-semibold transition border-b-2 ${activeGpsLogTab === 'ERROR' ? 'border-sky-500 text-sky-500' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-            >
-              Error GPS
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
-            {isFetchingGpsLogs ? (
-              <div className="flex justify-center items-center h-32">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-sky-500 dark:border-white/10 dark:border-t-sky-500" />
-              </div>
-            ) : gpsLogs.length === 0 ? (
-              <div className="text-center text-slate-500 py-12 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
-                Tidak ada log ditemukan.
-              </div>
-            ) : (
-              <>
-              {gpsLogs.map(log => {
-                let parsedOld = {};
-                let parsedNew = {};
-                try {
-                  if (log.old_data) parsedOld = JSON.parse(log.old_data);
-                  if (log.new_data) parsedNew = JSON.parse(log.new_data);
-                } catch (e) {}
-                
-                const logDate = new Date(log.created_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
-                
-                return (
-                  <div key={log.id} className="p-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
-                    <div className="flex justify-between items-center mb-3">
-                      <span className="text-xs font-semibold text-slate-400">{logDate}</span>
-                      <Badge tone="neutral">{log.user_agent || "Sistem"}</Badge>
-                    </div>
-                    {activeGpsLogTab === 'HM' ? (
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-slate-600 dark:text-slate-400">HM:</span>
-                          <span className="font-semibold text-slate-900 dark:text-white">{(parsedOld as any).hm?.toFixed(2)} → <span className="text-emerald-500">{(parsedNew as any).hm?.toFixed(2)}</span></span>
-                        </div>
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-slate-600 dark:text-slate-400">Jam:</span>
-                          <span className="font-semibold text-slate-900 dark:text-white">{(parsedOld as any).hours?.toFixed(2)} → <span className="text-emerald-500">{(parsedNew as any).hours?.toFixed(2)}</span></span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-sm">
-                        <p className="font-medium text-rose-500 bg-rose-50 dark:bg-rose-500/10 p-3 rounded-xl border border-rose-100 dark:border-rose-500/20">
-                          {(parsedNew as any).error || "Error tidak diketahui"}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-              </>
-            )}
-          </div>
-          <div className="p-4 border-t border-slate-200 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
-            <button 
-              disabled={gpsLogsPage === 1}
-              onClick={() => setGpsLogsPage(p => Math.max(1, p - 1))}
-              className="px-4 py-2 text-sm font-semibold rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 disabled:opacity-50 transition hover:bg-slate-50 dark:hover:bg-slate-700"
-            >
-              Sebelumnya
-            </button>
-            <span className="text-xs font-medium text-slate-500">
-              Hal {gpsLogsPage} dari {Math.max(1, Math.ceil(gpsLogsTotal / gpsLogsLimit))}
-            </span>
-            <button 
-              disabled={gpsLogsPage >= Math.ceil(gpsLogsTotal / gpsLogsLimit)}
-              onClick={() => setGpsLogsPage(p => p + 1)}
-              className="px-4 py-2 text-sm font-semibold rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 disabled:opacity-50 transition hover:bg-slate-50 dark:hover:bg-slate-700"
-            >
-              Berikutnya
-            </button>
-          </div>
-        </div>
-      </div>
+      <GpsLogDrawer 
+        isOpen={isGpsLogOpen} 
+        onClose={() => setIsGpsLogOpen(false)} 
+        unitId={apiUnit?.id} 
+      />
 
+
+      <HistoryReplacementDrawer
+        isOpen={isHistoryDrawerOpen}
+        onClose={() => setIsHistoryDrawerOpen(false)}
+        historyAplItem={historyAplItem}
+        setPreviewImageUrl={setPreviewImageUrl}
+      />
 
     </React.Fragment>
   );

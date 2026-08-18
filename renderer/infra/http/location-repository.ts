@@ -20,6 +20,11 @@ export class LocationRepository extends Repository<ILocation> implements ILocati
         const { data } = await this.restApi.axios.get(this.baseUrl);
         return data.data || data || [];
     }
+
+    async createLocation(name: string): Promise<ILocation> {
+        const { data } = await this.restApi.axios.post(this.baseUrl, { name });
+        return data.data || data;
+    }
 }
 
 export const locationRepository = LocationRepository.getInstance();

@@ -21,6 +21,12 @@ export class TypeUnitRepository extends Repository<ITypeUnit> implements ITypeUn
         const items = data.data?.data || data.data || [];
         return Array.isArray(items) ? items.map((item: any) => TypeUnit.create(item).unmarshall()) : [];
     }
+
+    async createTypeUnit(name: string): Promise<ITypeUnit> {
+        const { data } = await this.restApi.axios.post(this.baseUrl, { name });
+        const item = data.data || data;
+        return TypeUnit.create(item).unmarshall();
+    }
 }
 
 export const typeUnitRepository = TypeUnitRepository.getInstance();

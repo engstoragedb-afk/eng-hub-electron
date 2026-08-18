@@ -4,4 +4,5 @@ import { IRepository } from "./repository";
 
 export interface ITypeUnitRepository extends IRepository<ITypeUnit> {
     getTypeUnits(): Promise<ITypeUnit[]>;
+    createTypeUnit(name: string): Promise<ITypeUnit>;
 }

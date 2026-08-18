@@ -26,6 +26,10 @@ export class UnitService extends Service<IUnit, IUnitRepository> implements IUni
         return this.repository.getUnitsByCategory(categoryId, params);
     }
 
+    async getUnitsDetailsByCategory(categoryId?: string): Promise<any[]> {
+        return this.repository.getUnitsDetailsByCategory(categoryId);
+    }
+
     async getAllUnits(params?: IUnitGetParams): Promise<IUnit[]> {
         return this.repository.getAllUnits(params);
     }

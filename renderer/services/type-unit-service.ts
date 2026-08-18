@@ -21,6 +21,10 @@ export class TypeUnitService extends Service<ITypeUnit, ITypeUnitRepository> imp
     async getTypeUnits(): Promise<ITypeUnit[]> {
         return this.repository.getTypeUnits();
     }
+
+    async createTypeUnit(name: string): Promise<ITypeUnit> {
+        return this.repository.createTypeUnit(name);
+    }
 }
 
 export const typeUnitService = TypeUnitService.getInstance(typeUnitRepository);
