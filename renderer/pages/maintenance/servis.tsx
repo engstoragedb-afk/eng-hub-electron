@@ -4,7 +4,7 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import { FaChevronLeft, FaChevronRight, FaFileExcel, FaSearch, FaColumns, FaTimes, FaUpload, FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
 import { categoryUnitsService, unitService } from "@/services";
-import * as XLSX from "xlsx";
+import ExcelJS from 'exceljs';
 import { createPortal } from "react-dom";
 
 const FIXED_COLUMNS = [
@@ -42,7 +42,7 @@ export default function MaintenanceServisPage() {
       if (savedHidden) setHiddenColumns(JSON.parse(savedHidden));
       const savedCollapsed = localStorage.getItem('servis_collapsed_cols');
       if (savedCollapsed) setCollapsedCols(JSON.parse(savedCollapsed));
-    } catch {}
+    } catch { }
   }, []);
 
   useEffect(() => {
@@ -61,11 +61,11 @@ export default function MaintenanceServisPage() {
   }, []);
 
   useEffect(() => {
-    try { localStorage.setItem('servis_hidden_columns', JSON.stringify(hiddenColumns)); } catch {}
+    try { localStorage.setItem('servis_hidden_columns', JSON.stringify(hiddenColumns)); } catch { }
   }, [hiddenColumns]);
 
   useEffect(() => {
-    try { localStorage.setItem('servis_collapsed_cols', JSON.stringify(collapsedCols)); } catch {}
+    try { localStorage.setItem('servis_collapsed_cols', JSON.stringify(collapsedCols)); } catch { }
   }, [collapsedCols]);
 
 
@@ -99,7 +99,7 @@ export default function MaintenanceServisPage() {
     const cols = new Map<string, string>();
     detailsData.forEach(item => {
       item.aplData?.forEach((apl: any) => {
-        cols.set(apl.category_apl_id, apl.name); 
+        cols.set(apl.category_apl_id, apl.name);
       });
     });
     return Array.from(cols.entries()).map(([id, name]) => ({ id, name }));
@@ -123,7 +123,7 @@ export default function MaintenanceServisPage() {
       const codeMatch = (u.code || "").toLowerCase().includes(searchTerm.toLowerCase());
       const opName = (u.operator?.full_name || u.operator?.name || "").toLowerCase();
       const opMatch = opName.includes(searchTerm.toLowerCase());
-      
+
       const locName = u.location?.name || (typeof u.location === 'string' ? u.location : '-');
       const locMatch = locationFilter === "Semua" || locName === locationFilter;
 
@@ -151,7 +151,7 @@ export default function MaintenanceServisPage() {
       .catch((err) => console.error("Failed to fetch category units:", err));
   }, []);
 
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     if (filteredData.length === 0) return;
 
     const headers = [
@@ -161,39 +161,249 @@ export default function MaintenanceServisPage() {
 
     const rows = filteredData.map((u, index) => {
       const row: any = {};
+
       visibleFixedCols.forEach(col => {
-        if (col.id === 'no') row[col.name] = index + 1;
-        else if (col.id === 'code') row[col.name] = u.code || '';
-        else if (col.id === 'operator') row[col.name] = u.operator?.full_name || u.operator?.name || '';
-        else if (col.id === 'lokasi') row[col.name] = u.location?.name || (typeof u.location === 'string' ? u.location : '');
-        else if (col.id === 'hm') row[col.name] = u.hm || 0;
-        else if (col.id === 'hours') row[col.name] = u.hours || 0;
+        if (col.id === 'no') {
+          row[col.name] = index + 1;
+        } else if (col.id === 'code') {
+          row[col.name] = u.code || '';
+        } else if (col.id === 'operator') {
+          row[col.name] =
+            u.operator?.full_name ||
+            u.operator?.name ||
+            '';
+        } else if (col.id === 'lokasi') {
+          row[col.name] =
+            u.location?.name ||
+            (typeof u.location === 'string' ? u.location : '');
+        } else if (col.id === 'hm') {
+          row[col.name] = u.hm || 0;
+        } else if (col.id === 'hours') {
+          row[col.name] = u.hours || 0;
+        }
       });
+
       visibleAplColumns.forEach(col => {
-        const aplRecord = u.aplData?.find((a: any) => a.category_apl_id === col.id);
-        row[col.name] = aplRecord ? (aplRecord.input ?? 0) : 0;
+        const aplRecord = u.aplData?.find(
+          (a: any) => a.category_apl_id === col.id
+        );
+
+        row[col.name] = aplRecord
+          ? (aplRecord.input ?? 0)
+          : 0;
       });
+
       return row;
     });
 
-    const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
+    const workbook = new ExcelJS.Workbook();
 
-    // Styling header row bold
-    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
-    for (let C = range.s.c; C <= range.e.c; C++) {
-      const cellAddr = XLSX.utils.encode_cell({ r: 0, c: C });
-      if (!ws[cellAddr]) continue;
-      ws[cellAddr].s = { font: { bold: true }, fill: { fgColor: { rgb: 'D9EAF7' } } };
+    workbook.creator = 'Your Application';
+    workbook.lastModifiedBy = 'Your Application';
+    workbook.created = new Date();
+    workbook.modified = new Date();
+
+    const activeCategory = categories.find(
+      c => c.id === activeCategoryId
+    );
+
+    const categoryName = activeCategory
+      ? activeCategory.name.replace(/\s+/g, '_')
+      : 'Semua';
+
+    const worksheet = workbook.addWorksheet(
+      categoryName.slice(0, 31)
+    );
+
+    worksheet.columns = headers.map(header => ({
+      header,
+      key: header,
+      width: Math.max(header.length + 4, 14),
+    }));
+
+    rows.forEach(row => {
+      worksheet.addRow(row);
+    });
+    const headerRow = worksheet.getRow(1);
+
+    headerRow.height = 30;
+
+    headerRow.eachCell(cell => {
+      cell.font = {
+        bold: true,
+        size: 11,
+      };
+
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: {
+          argb: 'FFD9EAF7',
+        },
+      };
+
+      cell.alignment = {
+        vertical: 'middle',
+        horizontal: 'center',
+        wrapText: true,
+      };
+
+      cell.border = {
+        top: {
+          style: 'thin',
+          color: {
+            argb: 'FF808080',
+          },
+        },
+        bottom: {
+          style: 'thin',
+          color: {
+            argb: 'FF808080',
+          },
+        },
+        left: {
+          style: 'thin',
+          color: {
+            argb: 'FF808080',
+          },
+        },
+        right: {
+          style: 'thin',
+          color: {
+            argb: 'FF808080',
+          },
+        },
+      };
+    });
+
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return;
+
+      row.height = 22;
+
+      row.eachCell(cell => {
+        cell.alignment = {
+          vertical: 'middle',
+          horizontal: 'left',
+        };
+
+        cell.border = {
+          top: {
+            style: 'thin',
+            color: {
+              argb: 'FFD9D9D9',
+            },
+          },
+          bottom: {
+            style: 'thin',
+            color: {
+              argb: 'FFD9D9D9',
+            },
+          },
+          left: {
+            style: 'thin',
+            color: {
+              argb: 'FFD9D9D9',
+            },
+          },
+          right: {
+            style: 'thin',
+            color: {
+              argb: 'FFD9D9D9',
+            },
+          },
+        };
+      });
+    });
+
+    headers.forEach((header, index) => {
+      const column = worksheet.getColumn(index + 1);
+      if (visibleFixedCols[index]?.id === 'no') {
+        column.alignment = {
+          horizontal: 'center',
+          vertical: 'middle',
+        };
+      }
+
+      // Numeric columns
+      const fixedColumn = visibleFixedCols.find(
+        col => col.name === header
+      );
+
+      if (
+        fixedColumn?.id === 'hm' ||
+        fixedColumn?.id === 'hours' ||
+        visibleAplColumns.some(col => col.name === header)
+      ) {
+        column.alignment = {
+          horizontal: 'center',
+          vertical: 'middle',
+        };
+
+        column.numFmt = '#,##0.00';
+      }
+    });
+
+    for (let i = 1; i <= worksheet.columnCount; i++) {
+      const column = worksheet.getColumn(i);
+
+      let maxLength = 0;
+
+      column.eachCell({ includeEmpty: true }, cell => {
+        const value = cell.value;
+
+        let length = 0;
+
+        if (value !== null && value !== undefined) {
+          if (typeof value === 'object') {
+            length = JSON.stringify(value).length;
+          } else {
+            length = String(value).length;
+          }
+        }
+
+        maxLength = Math.max(maxLength, length);
+      });
+
+      column.width = Math.min(
+        Math.max(maxLength + 4, 14),
+        40
+      );
     }
 
-    // Auto column width
-    ws['!cols'] = headers.map(h => ({ wch: Math.max(h.length + 4, 14) }));
+    worksheet.views = [
+      {
+        state: 'frozen',
+        ySplit: 1,
+      },
+    ];
+    worksheet.autoFilter = {
+      from: 'A1',
+      to: `${worksheet.getColumn(worksheet.columnCount).letter}1`,
+    };
+    const date = new Date()
+      .toISOString()
+      .split('T')[0];
+    const fileName =
+      `Data_Servis_${categoryName}_${date}.xlsx`;
 
-    const wb = XLSX.utils.book_new();
-    const activeCategory = categories.find(c => c.id === activeCategoryId);
-    const categoryName = activeCategory ? activeCategory.name.replace(/\s+/g, '_') : 'Semua';
-    XLSX.utils.book_append_sheet(wb, ws, categoryName.slice(0, 31));
-    XLSX.writeFile(wb, `Data_Servis_${categoryName}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob(
+      [buffer],
+      {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      }
+    );
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -226,9 +436,8 @@ export default function MaintenanceServisPage() {
 
         {/* Floating Search Bar (CMD+F / CTRL+F) */}
         <div
-          className={`fixed top-0 left-0 right-0 z-[200] flex justify-center transition-transform duration-300 ease-out ${
-            isFloatingSearchOpen ? 'translate-y-0' : '-translate-y-full'
-          }`}
+          className={`fixed top-0 left-0 right-0 z-[200] flex justify-center transition-transform duration-300 ease-out ${isFloatingSearchOpen ? 'translate-y-0' : '-translate-y-full'
+            }`}
         >
           <div className="mt-3 w-full max-w-xl mx-4 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-white/10 flex items-center gap-3 px-4 py-3">
             <FaSearch className="text-slate-400 shrink-0" size={14} />
@@ -255,7 +464,7 @@ export default function MaintenanceServisPage() {
         </div>
 
         <div className="flex flex-col gap-6 p-4">
-          
+
           {/* Header Action & Tabs Kategori */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide flex-1">
@@ -263,16 +472,14 @@ export default function MaintenanceServisPage() {
                 <button
                   key={cat.id}
                   onClick={() => setActiveCategoryId(cat.id)}
-                  className={`flex-shrink-0 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${
-                    activeCategoryId === cat.id 
-                      ? "bg-sky-500 text-white shadow-md shadow-sky-500/20 border border-sky-400" 
-                      : "bg-white dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-slate-700"
-                  }`}
+                  className={`flex-shrink-0 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${activeCategoryId === cat.id
+                    ? "bg-sky-500 text-white shadow-md shadow-sky-500/20 border border-sky-400"
+                    : "bg-white dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-slate-700"
+                    }`}
                 >
                   {cat.name}
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                    activeCategoryId === cat.id ? "bg-white/25 text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
-                  }`}>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${activeCategoryId === cat.id ? "bg-white/25 text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
+                    }`}>
                     {cat.count || 0}
                   </span>
                 </button>
@@ -336,7 +543,7 @@ export default function MaintenanceServisPage() {
                 <option key={loc} value={loc}>{loc}</option>
               ))}
             </select>
-            
+
             <div className="relative">
               <button
                 onClick={() => setShowColumnMenu(!showColumnMenu)}
@@ -344,7 +551,7 @@ export default function MaintenanceServisPage() {
               >
                 <FaColumns /> Kolom Tabel
               </button>
-              
+
               {showColumnMenu && (
                 <div className="absolute right-0 top-full mt-2 w-64 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 p-2 shadow-xl z-50">
                   <div className="mb-2 px-2 pb-2 border-b border-slate-100 dark:border-white/10 text-xs font-bold text-slate-500 uppercase">
@@ -354,8 +561,8 @@ export default function MaintenanceServisPage() {
                     <div className="px-2 py-1 mt-1 text-[10px] font-bold text-slate-400">KOLOM UTAMA</div>
                     {FIXED_COLUMNS.map(col => (
                       <label key={col.id} className="flex items-center gap-3 px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg cursor-pointer">
-                        <input 
-                          type="checkbox" 
+                        <input
+                          type="checkbox"
                           checked={!hiddenColumns[col.id]}
                           onChange={() => setHiddenColumns(prev => ({ ...prev, [col.id]: !prev[col.id] }))}
                           className="rounded border-slate-300 text-sky-500 focus:ring-sky-500"
@@ -367,8 +574,8 @@ export default function MaintenanceServisPage() {
                     <div className="px-2 py-1 mt-3 border-t border-slate-100 dark:border-white/5 pt-3 text-[10px] font-bold text-slate-400">KOLOM APL</div>
                     {aplColumns.map(col => (
                       <label key={col.id} className="flex items-center gap-3 px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg cursor-pointer">
-                        <input 
-                          type="checkbox" 
+                        <input
+                          type="checkbox"
                           checked={!hiddenColumns[col.id]}
                           onChange={() => setHiddenColumns(prev => ({ ...prev, [col.id]: !prev[col.id] }))}
                           className="rounded border-slate-300 text-sky-500 focus:ring-sky-500"
@@ -390,14 +597,14 @@ export default function MaintenanceServisPage() {
                     const isLast = idx === fixedColsWithLeft.length - 1;
                     const isCollapsed = collapsedCols[col.id];
                     return (
-                      <th 
+                      <th
                         key={col.id}
                         style={{ left: col.left, width: col.width, minWidth: col.width, maxWidth: col.width }}
                         className={`${isCollapsed ? 'px-2' : 'px-4'} py-4 whitespace-nowrap border-r border-slate-200 dark:border-white/5 sticky z-20 bg-slate-50 dark:bg-slate-800 transition-all duration-300 ${isLast ? 'shadow-[4px_0_10px_-4px_rgba(0,0,0,0.1)] dark:shadow-[4px_0_10px_-4px_rgba(255,255,255,0.05)]' : ''}`}
                       >
                         <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} gap-2`}>
                           {!isCollapsed && <span className="truncate">{col.name}</span>}
-                          <button 
+                          <button
                             onClick={(e) => toggleCollapse(col.id, e)}
                             className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors shrink-0"
                             title={isCollapsed ? "Perbesar" : "Perkecil"}
@@ -409,8 +616,8 @@ export default function MaintenanceServisPage() {
                     );
                   })}
                   {visibleAplColumns.map(col => (
-                    <th 
-                      key={col.id} 
+                    <th
+                      key={col.id}
                       style={{ width: 120, minWidth: 120, maxWidth: 120 }}
                       className="px-4 py-4 whitespace-nowrap border-r border-slate-200 dark:border-white/5 text-center transition-all duration-300 overflow-hidden"
                     >
@@ -432,8 +639,8 @@ export default function MaintenanceServisPage() {
                 ) : (
                   filteredData.map((u, index) => {
                     return (
-                      <tr 
-                        key={u.id || index} 
+                      <tr
+                        key={u.id || index}
                         className="group hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                         onClick={() => router.push(`/maintenance/detail-unit?id=${u.id}`)}
                       >
@@ -441,7 +648,7 @@ export default function MaintenanceServisPage() {
                           const isLast = idx === fixedColsWithLeft.length - 1;
                           const isCollapsed = collapsedCols[col.id];
                           let content: React.ReactNode = "-";
-                          
+
                           if (col.id === 'no') content = index + 1;
                           else if (col.id === 'code') content = <span className="font-bold text-slate-900 dark:text-white">{u.code || '-'}</span>;
                           else if (col.id === 'operator') content = u.operator?.full_name || u.operator?.name || '-';
@@ -450,7 +657,7 @@ export default function MaintenanceServisPage() {
                           else if (col.id === 'hours') content = <span className="font-semibold">{u.hours || 0}</span>;
 
                           return (
-                            <td 
+                            <td
                               key={col.id}
                               style={{ left: col.left, width: col.width, minWidth: col.width, maxWidth: col.width }}
                               className={`${isCollapsed ? 'px-2 whitespace-nowrap' : 'px-4 whitespace-normal break-words'} py-4 border-r border-slate-200 dark:border-white/5 sticky z-10 bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800 transition-all duration-300 ${col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'} ${isLast ? 'shadow-[4px_0_10px_-4px_rgba(0,0,0,0.1)] dark:shadow-[4px_0_10px_-4px_rgba(255,255,255,0.05)]' : ''}`}
@@ -466,7 +673,7 @@ export default function MaintenanceServisPage() {
                         {visibleAplColumns.map(col => {
                           const aplRecord = u.aplData?.find((a: any) => a.category_apl_id === col.id);
                           const val = aplRecord ? (aplRecord.input || 0) : 0;
-                          
+
                           let barColor = "bg-emerald-400 dark:bg-emerald-500 shadow-[0_0_5px_rgba(52,211,153,0.6)]";
                           if (val <= -50) barColor = "bg-rose-500 dark:bg-rose-600 shadow-[0_0_5px_rgba(244,63,94,0.6)]";
                           else if (val <= 0) barColor = "bg-orange-500 dark:bg-orange-600 shadow-[0_0_5px_rgba(249,115,22,0.6)]";
@@ -475,8 +682,8 @@ export default function MaintenanceServisPage() {
                           const fillPercent = Math.min(100, Math.max(8, (Math.abs(val) / 250) * 100));
 
                           return (
-                            <td 
-                              key={col.id} 
+                            <td
+                              key={col.id}
                               style={{ width: 120, minWidth: 120, maxWidth: 120 }}
                               className="px-4 py-4 whitespace-nowrap text-center border-r border-slate-200 dark:border-white/5 transition-all duration-300"
                             >
@@ -485,8 +692,8 @@ export default function MaintenanceServisPage() {
                                   {Array.from({ length: 10 }).map((_, i) => {
                                     const isFilled = i < Math.round((fillPercent / 100) * 10);
                                     return (
-                                      <div 
-                                        key={i} 
+                                      <div
+                                        key={i}
                                         className={`w-full flex-1 rounded-[1px] transition-all duration-300 ${isFilled ? barColor : 'bg-slate-200 dark:bg-slate-700/30'}`}
                                       />
                                     );
@@ -513,11 +720,10 @@ export default function MaintenanceServisPage() {
           <div className="w-full max-w-xl rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 shadow-2xl flex flex-col max-h-[80vh]">
             <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-white/10">
               <div className="flex items-center gap-3">
-                <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${
-                  importResult.notUpdated.length === 0
-                    ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-500'
-                    : 'bg-amber-100 dark:bg-amber-500/10 text-amber-500'
-                }`}>
+                <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${importResult.notUpdated.length === 0
+                  ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-500'
+                  : 'bg-amber-100 dark:bg-amber-500/10 text-amber-500'
+                  }`}>
                   {importResult.notUpdated.length === 0 ? <FaCheckCircle size={18} /> : <FaExclamationTriangle size={18} />}
                 </div>
                 <div>
