@@ -2,8 +2,10 @@ import React, { useState, useEffect, useRef } from "react";
 import MaintenanceLayout from "@/components/organisms/MaintenanceLayout";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { FaChevronLeft, FaChevronRight, FaFileExcel, FaSearch, FaColumns, FaTimes } from "react-icons/fa";
+import { FaChevronLeft, FaChevronRight, FaFileExcel, FaSearch, FaColumns, FaTimes, FaUpload, FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
 import { categoryUnitsService, unitService } from "@/services";
+import * as XLSX from "xlsx";
+import { createPortal } from "react-dom";
 
 const FIXED_COLUMNS = [
   { id: "no", name: "No", defaultWidth: 60, align: "center" },
@@ -27,6 +29,12 @@ export default function MaintenanceServisPage() {
   const [collapsedCols, setCollapsedCols] = useState<Record<string, boolean>>({});
   const [isFloatingSearchOpen, setIsFloatingSearchOpen] = useState(false);
   const floatingSearchRef = useRef<HTMLInputElement>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ notUpdated: any[] } | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     try {
@@ -145,48 +153,69 @@ export default function MaintenanceServisPage() {
 
   const exportToExcel = () => {
     if (filteredData.length === 0) return;
-    
+
     const headers = [
       ...visibleFixedCols.map(col => col.name),
-      ...visibleAplColumns.map(col => col.name)
+      ...visibleAplColumns.map(col => col.name),
     ];
 
-    const csvRows = [];
-    csvRows.push(headers.join(","));
-
-    filteredData.forEach((u, index) => {
-      const row: any[] = [];
-      
+    const rows = filteredData.map((u, index) => {
+      const row: any = {};
       visibleFixedCols.forEach(col => {
-        if (col.id === 'no') row.push(index + 1);
-        else if (col.id === 'code') row.push(`"${u.code || ''}"`);
-        else if (col.id === 'operator') row.push(`"${u.operator?.full_name || u.operator?.name || ''}"`);
-        else if (col.id === 'lokasi') row.push(`"${u.location?.name || (typeof u.location === 'string' ? u.location : '')}"`);
-        else if (col.id === 'hm') row.push(u.hm || 0);
-        else if (col.id === 'hours') row.push(u.hours || 0);
+        if (col.id === 'no') row[col.name] = index + 1;
+        else if (col.id === 'code') row[col.name] = u.code || '';
+        else if (col.id === 'operator') row[col.name] = u.operator?.full_name || u.operator?.name || '';
+        else if (col.id === 'lokasi') row[col.name] = u.location?.name || (typeof u.location === 'string' ? u.location : '');
+        else if (col.id === 'hm') row[col.name] = u.hm || 0;
+        else if (col.id === 'hours') row[col.name] = u.hours || 0;
       });
-
       visibleAplColumns.forEach(col => {
         const aplRecord = u.aplData?.find((a: any) => a.category_apl_id === col.id);
-        const val = aplRecord ? (aplRecord.input || 0) : 0;
-        row.push(val);
+        row[col.name] = aplRecord ? (aplRecord.input ?? 0) : 0;
       });
-
-      csvRows.push(row.join(","));
+      return row;
     });
 
-    const csvString = csvRows.join("\n");
-    const blob = new Blob(["\uFEFF" + csvString], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
+    const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
+
+    // Styling header row bold
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+    for (let C = range.s.c; C <= range.e.c; C++) {
+      const cellAddr = XLSX.utils.encode_cell({ r: 0, c: C });
+      if (!ws[cellAddr]) continue;
+      ws[cellAddr].s = { font: { bold: true }, fill: { fgColor: { rgb: 'D9EAF7' } } };
+    }
+
+    // Auto column width
+    ws['!cols'] = headers.map(h => ({ wch: Math.max(h.length + 4, 14) }));
+
+    const wb = XLSX.utils.book_new();
     const activeCategory = categories.find(c => c.id === activeCategoryId);
     const categoryName = activeCategory ? activeCategory.name.replace(/\s+/g, '_') : 'Semua';
-    link.href = url;
-    link.setAttribute("download", `Data_Servis_${categoryName}_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    XLSX.utils.book_append_sheet(wb, ws, categoryName.slice(0, 31));
+    XLSX.writeFile(wb, `Data_Servis_${categoryName}_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
+
+  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Reset input so same file can be re-selected
+    e.target.value = '';
+    setIsImporting(true);
+    try {
+      const notUpdated = await unitService.uploadHoursFromExcel(file);
+      setImportResult({ notUpdated: notUpdated || [] });
+      // Refresh data
+      if (activeCategoryId) {
+        unitService.getUnitsDetailsByCategory(activeCategoryId).then(d => setDetailsData(d || []));
+      }
+    } catch (err: any) {
+      setImportResult({ notUpdated: [{ reason: err?.response?.data?.message || err?.message || 'Terjadi kesalahan saat import.' }] });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
 
   return (
     <>
@@ -250,13 +279,39 @@ export default function MaintenanceServisPage() {
               ))}
             </div>
 
-            <button
-              onClick={exportToExcel}
-              disabled={isLoading || filteredData.length === 0}
-              className="flex items-center justify-center gap-2 rounded-xl border border-emerald-500/50 bg-emerald-500/10 px-5 py-2.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400 transition hover:bg-emerald-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-            >
-              <FaFileExcel size={16} /> Export Excel
-            </button>
+            {/* Import input (hidden) */}
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              className="hidden"
+              onChange={handleImportExcel}
+            />
+
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Import Button */}
+              <button
+                onClick={() => importInputRef.current?.click()}
+                disabled={isImporting}
+                className="flex items-center justify-center gap-2 rounded-xl border border-violet-500/50 bg-violet-500/10 px-5 py-2.5 text-sm font-semibold text-violet-600 dark:text-violet-400 transition hover:bg-violet-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Import HM dari file Excel (format khusus)"
+              >
+                {isImporting ? (
+                  <><div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" /> Mengimport...</>
+                ) : (
+                  <><FaUpload size={14} /> Import Excel</>
+                )}
+              </button>
+
+              {/* Export Button */}
+              <button
+                onClick={exportToExcel}
+                disabled={isLoading || filteredData.length === 0}
+                className="flex items-center justify-center gap-2 rounded-xl border border-emerald-500/50 bg-emerald-500/10 px-5 py-2.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400 transition hover:bg-emerald-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FaFileExcel size={16} /> Export Excel
+              </button>
+            </div>
           </div>
 
           {/* Filter Bar */}
@@ -451,6 +506,73 @@ export default function MaintenanceServisPage() {
           </div>
         </div>
       </MaintenanceLayout>
+
+      {/* Import Result Modal */}
+      {importResult && mounted && createPortal(
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/60 p-4">
+          <div className="w-full max-w-xl rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 shadow-2xl flex flex-col max-h-[80vh]">
+            <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-white/10">
+              <div className="flex items-center gap-3">
+                <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${
+                  importResult.notUpdated.length === 0
+                    ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-500'
+                    : 'bg-amber-100 dark:bg-amber-500/10 text-amber-500'
+                }`}>
+                  {importResult.notUpdated.length === 0 ? <FaCheckCircle size={18} /> : <FaExclamationTriangle size={18} />}
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">Hasil Import Excel</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    {importResult.notUpdated.length === 0
+                      ? 'Semua unit berhasil diperbarui!'
+                      : `${importResult.notUpdated.length} unit tidak dapat diperbarui`
+                    }
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setImportResult(null)}
+                className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
+              >
+                <FaTimes size={16} />
+              </button>
+            </div>
+
+            {importResult.notUpdated.length > 0 && (
+              <div className="flex-1 overflow-y-auto p-4">
+                <p className="text-xs font-semibold uppercase text-slate-400 mb-3">Unit yang tidak berhasil diperbarui:</p>
+                <div className="flex flex-col gap-2">
+                  {importResult.notUpdated.map((item: any, i: number) => (
+                    <div key={i} className="rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 p-3">
+                      {item.codeUnit ? (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-sm text-slate-800 dark:text-slate-100">{item.codeUnit}</span>
+                            <span className="text-xs text-slate-500 dark:text-slate-400">{item.sheet}</span>
+                          </div>
+                          <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">{item.reason}</p>
+                        </>
+                      ) : (
+                        <p className="text-sm text-rose-600 dark:text-rose-400">{item.reason}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="p-4 border-t border-slate-200 dark:border-white/10">
+              <button
+                onClick={() => setImportResult(null)}
+                className="w-full rounded-xl bg-sky-500 py-2.5 text-sm font-semibold text-white hover:bg-sky-600 transition"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </>
   );
 }

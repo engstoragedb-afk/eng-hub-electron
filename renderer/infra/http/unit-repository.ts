@@ -52,6 +52,15 @@ export class UnitRepository extends Repository<IUnit> implements IUnitRepository
         const res = await this.restApi.axios.post(this.baseUrl, data);
         return Unit.create(res.data.data || res.data).unmarshall();
     }
+
+    async uploadHoursFromExcel(file: File): Promise<any[]> {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await this.restApi.axios.post(`${this.baseUrl}/import/hours`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return res.data.data || res.data || [];
+    }
 }
 
 export const unitRepository = UnitRepository.getInstance();

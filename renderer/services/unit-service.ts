@@ -41,6 +41,10 @@ export class UnitService extends Service<IUnit, IUnitRepository> implements IUni
     async createUnit(data: ICreateUnitPayload): Promise<IUnit> {
         return this.repository.createUnit(data);
     }
+
+    async uploadHoursFromExcel(file: File): Promise<any[]> {
+        return this.repository.uploadHoursFromExcel(file);
+    }
 }
 
 export const unitService = UnitService.getInstance(unitRepository);

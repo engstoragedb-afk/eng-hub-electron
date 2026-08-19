@@ -9,4 +9,5 @@ export interface IUnitService extends IService<IUnit> {
     getAllUnits(params?: IUnitGetParams): Promise<IUnit[]>;
     createUnit(data: ICreateUnitPayload): Promise<IUnit>;
     updateUnit(id: string, data: Partial<IUnit>): Promise<IUnit>;
+    uploadHoursFromExcel(file: File): Promise<any[]>;
 }
