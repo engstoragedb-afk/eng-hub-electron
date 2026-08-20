@@ -109,10 +109,10 @@ export default function UnitCard({
             </div>
             {viewMode === 'grid' && (
               <div className="mt-4 space-y-2 text-sm text-slate-700 dark:text-slate-300">
-                <div className="flex items-center justify-between">
+                {/* <div className="flex items-center justify-between">
                   <span>HM</span>
                   <span>{hm}</span>
-                </div>
+                </div> */}
                 <div className="flex items-center justify-between">
                   <span>Hours</span>
                   <span>{hours}</span>
@@ -123,10 +123,10 @@ export default function UnitCard({
         </div>
         {viewMode === 'list' && (
           <div className="flex items-center w-2/3 justify-between">
-            <div className="flex-1 flex flex-col gap-1">
+            {/* <div className="flex-1 flex flex-col gap-1">
               <span className="text-xs text-slate-400 dark:text-slate-500">HM</span>
               <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{hm}</span>
-            </div>
+            </div> */}
             <div className="flex-1 flex flex-col gap-1">
               <span className="text-xs text-slate-400 dark:text-slate-500">Hours</span>
               <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{hours}</span>

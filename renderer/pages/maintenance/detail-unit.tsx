@@ -590,13 +590,15 @@ export default function UnitDetailPage() {
                   </div>
                 </div>
 
-                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                <div className="mt-6 grid gap-3">
+                  {/* HM Card Hidden 
                   <div className="rounded-2xl bg-white dark:bg-slate-900/70 p-4">
                     <p className="text-xs text-slate-400 dark:text-slate-600 dark:text-slate-400">HM</p>
                     <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">
                       <EditableText value={unit.hm} type="number" onSave={(val) => handleUpdateUnit({ hm: Number(val) })} />
                     </p>
                   </div>
+                  */}
                   <div className="rounded-2xl bg-white dark:bg-slate-900/70 p-4">
                     <p className="text-xs text-slate-400 dark:text-slate-600 dark:text-slate-400">HOURS</p>
                     <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">

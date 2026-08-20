@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { FaTimes, FaPrint, FaChevronDown, FaFilePdf } from "react-icons/fa";
+import { FaTimes, FaPrint, FaChevronDown, FaFilePdf, FaSearchPlus, FaSearchMinus } from "react-icons/fa";
 
 interface PrintPreviewModalProps {
   units: any[];
@@ -46,8 +46,9 @@ export default function PrintPreviewModal({ units, aplColumns, categoryName, onC
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("landscape");
   const [showHeader, setShowHeader] = useState(true);
   const [showStatus, setShowStatus] = useState(true);
-  const [title, setTitle] = useState("Laporan Servis Unit");
+  const [title, setTitle] = useState("LAPORAN PLAN PS");
   const [subtitle, setSubtitle] = useState("");
+  const [zoom, setZoom] = useState(1);
   const [hiddenMainCols, setHiddenMainCols] = useState<Record<string, boolean>>({});
   const [aplDisplayMode, setAplDisplayMode] = useState<'diagram' | 'angka'>('angka');
   const [showValueLabel, setShowValueLabel] = useState(true);
@@ -124,9 +125,14 @@ export default function PrintPreviewModal({ units, aplColumns, categoryName, onC
 
     const headerBlock = showHeader ? `
       <div class="header">
-        <div class="doc-title">${title || "Laporan Servis Unit"}</div>
-        ${subtitle ? `<div class="doc-sub">${subtitle}</div>` : ""}
-        <div class="doc-meta">Dicetak: ${new Date().toLocaleString("id-ID")} &nbsp;|&nbsp; Total: ${units.length} unit</div>
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <img src="/images/icon.png" alt="Logo" style="height: 72px; object-fit: contain;" />
+          <div>
+            <div class="doc-title">${title || "LAPORAN PLAN PS"}</div>
+            ${subtitle ? `<div class="doc-sub">${subtitle}</div>` : ""}
+            <div class="doc-meta">Dicetak: ${new Date().toLocaleString("id-ID")} &nbsp;|&nbsp; Total: ${units.length} unit</div>
+          </div>
+        </div>
         <hr class="divider"/>
       </div>` : "";
 
@@ -217,7 +223,7 @@ ${showHeader ? `<div class="legend">🟥 Kritis (≤-50) &nbsp; 🟧 Waspada (�
             <div>
               <label className="text-xs font-bold uppercase text-slate-500 mb-1.5 block">Judul Dokumen</label>
               <input type="text" value={title} onChange={e => setTitle(e.target.value)}
-                placeholder="Laporan Servis Unit"
+                placeholder="LAPORAN PLAN PS"
                 className="w-full rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-sm outline-none focus:border-sky-500 text-slate-900 dark:text-slate-100" />
             </div>
 
@@ -332,15 +338,23 @@ ${showHeader ? `<div class="legend">🟥 Kritis (≤-50) &nbsp; 🟧 Waspada (�
                 fontSize: 9,
                 color: "#1e293b",
                 flexShrink: 0,
+                transform: `scale(${zoom})`,
+                transformOrigin: "top center"
               }}
             >
               {/* Preview Header */}
               {showHeader && (
                 <div style={{ marginBottom: 12 }}>
-                  <div style={{ fontSize: 15, fontWeight: "bold", color: "#1e3a8a" }}>{title || "Laporan Servis Unit"}</div>
-                  {subtitle && <div style={{ fontSize: 9, color: "#64748b", marginTop: 2 }}>{subtitle}</div>}
-                  <div style={{ fontSize: 8, color: "#94a3b8", marginTop: 3 }}>
-                    Dicetak: {new Date().toLocaleString("id-ID")} &nbsp;|&nbsp; Total: {units.length} unit
+                  <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/images/icon.png" alt="Logo" style={{ height: 72, objectFit: "contain" }} />
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: "bold", color: "#1e3a8a" }}>{title || "LAPORAN PLAN PS"}</div>
+                      {subtitle && <div style={{ fontSize: 9, color: "#64748b", marginTop: 2 }}>{subtitle}</div>}
+                      <div style={{ fontSize: 8, color: "#94a3b8", marginTop: 3 }}>
+                        Dicetak: {new Date().toLocaleString("id-ID")} &nbsp;|&nbsp; Total: {units.length} unit
+                      </div>
+                    </div>
                   </div>
                   <div style={{ borderTop: "2px solid #1e40af", marginTop: 8, marginBottom: 10 }} />
                 </div>
@@ -428,10 +442,21 @@ ${showHeader ? `<div class="legend">🟥 Kritis (≤-50) &nbsp; 🟧 Waspada (�
 
         {/* ── Footer ── */}
         <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-slate-200 dark:border-white/10 shrink-0">
-          <button onClick={onClose}
-            className="rounded-xl border border-slate-300 dark:border-white/10 px-5 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
-            Batal
-          </button>
+          <div className="flex items-center gap-4">
+            <button onClick={onClose}
+              className="rounded-xl border border-slate-300 dark:border-white/10 px-5 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+              Batal
+            </button>
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/50 rounded-lg p-1 border border-slate-200 dark:border-white/5">
+              <button onClick={() => setZoom(z => Math.max(0.3, z - 0.1))} className="p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-md text-slate-500 transition shadow-sm" title="Zoom Out">
+                <FaSearchMinus size={12} />
+              </button>
+              <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 w-12 text-center">{Math.round(zoom * 100)}%</span>
+              <button onClick={() => setZoom(z => Math.min(2, z + 0.1))} className="p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-md text-slate-500 transition shadow-sm" title="Zoom In">
+                <FaSearchPlus size={12} />
+              </button>
+            </div>
+          </div>
           <div className="flex items-center gap-2">
             <button onClick={handleSavePDF}
               className="flex items-center gap-2 rounded-xl border border-rose-500/40 bg-rose-500/10 px-5 py-2.5 text-sm font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-500 hover:text-white transition">

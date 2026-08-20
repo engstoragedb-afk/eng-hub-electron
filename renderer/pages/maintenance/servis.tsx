@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import MaintenanceLayout from "@/components/organisms/MaintenanceLayout";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { FaChevronLeft, FaChevronRight, FaFileExcel, FaSearch, FaColumns, FaTimes, FaUpload, FaCheckCircle, FaExclamationTriangle, FaChevronDown, FaPrint } from "react-icons/fa";
+import { FaChevronLeft, FaChevronRight, FaFileExcel, FaSearch, FaColumns, FaTimes, FaUpload, FaChevronDown, FaPrint } from "react-icons/fa";
 import { categoryUnitsService, unitService } from "@/services";
-import ExcelJS from 'exceljs';
+import { exportServisToExcel } from "@/utils/exportExcel";
 import { createPortal } from "react-dom";
 import PrintPreviewModal from "@/components/organisms/PrintPreviewModal";
+import ImportResultModal from "@/components/organisms/ImportResultModal";
 
 const FIXED_COLUMNS = [
   { id: "no", name: "No", defaultWidth: 60, align: "center" },
@@ -20,20 +22,20 @@ const FIXED_COLUMNS = [
 export default function MaintenanceServisPage() {
   const router = useRouter();
   const [categories, setCategories] = useState<any[]>([]);
-  const [activeCategoryId, setActiveCategoryId] = useState<string>("");
+  const [activeCategoryId, setActiveCategoryId] = useLocalStorage<string>("servis_active_category_id", "");
   const [detailsData, setDetailsData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [locationFilter, setLocationFilter] = useState("Semua");
-  const [aplFilterCols, setAplFilterCols] = useState<string[]>([]);
-  const [aplFilterColors, setAplFilterColors] = useState<string[]>([]);
-  const [aplFilterMode, setAplFilterMode] = useState<'some' | 'every'>('some');
+  const [searchTerm, setSearchTerm] = useLocalStorage("servis_search_term", "");
+  const [locationFilter, setLocationFilter] = useLocalStorage("servis_location_filter", "Semua");
+  const [aplFilterCols, setAplFilterCols] = useLocalStorage<string[]>("servis_apl_filter_cols", []);
+  const [aplFilterColors, setAplFilterColors] = useLocalStorage<string[]>("servis_apl_filter_colors", []);
+  const [aplFilterMode, setAplFilterMode] = useLocalStorage<'some' | 'every'>("servis_apl_filter_mode", 'some');
   const [showAplFilterMenu, setShowAplFilterMenu] = useState(false);
   const [showAplStatusMenu, setShowAplStatusMenu] = useState(false);
-  const [aplDisplayMode, setAplDisplayMode] = useState<'diagram' | 'angka'>('diagram');
+  const [aplDisplayMode, setAplDisplayMode] = useLocalStorage<'diagram' | 'angka'>("servis_apl_display_mode", 'diagram');
   const [showColumnMenu, setShowColumnMenu] = useState(false);
-  const [hiddenColumns, setHiddenColumns] = useState<Record<string, boolean>>({});
-  const [collapsedCols, setCollapsedCols] = useState<Record<string, boolean>>({});
+  const [hiddenColumns, setHiddenColumns] = useLocalStorage<Record<string, boolean>>("servis_hidden_columns", {});
+  const [collapsedCols, setCollapsedCols] = useLocalStorage<Record<string, boolean>>("servis_collapsed_cols", {});
   const [isFloatingSearchOpen, setIsFloatingSearchOpen] = useState(false);
   const floatingSearchRef = useRef<HTMLInputElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -44,33 +46,6 @@ export default function MaintenanceServisPage() {
   const [showPrintModal, setShowPrintModal] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
-
-  useEffect(() => {
-    try {
-      const savedHidden = localStorage.getItem('servis_hidden_columns');
-      if (savedHidden) setHiddenColumns(JSON.parse(savedHidden));
-      const savedCollapsed = localStorage.getItem('servis_collapsed_cols');
-      if (savedCollapsed) setCollapsedCols(JSON.parse(savedCollapsed));
-      
-      // Load APL filter states
-      const savedAplCols = localStorage.getItem('servis_apl_filter_cols');
-      if (savedAplCols) setAplFilterCols(JSON.parse(savedAplCols));
-      const savedAplColors = localStorage.getItem('servis_apl_filter_colors');
-      if (savedAplColors) setAplFilterColors(JSON.parse(savedAplColors));
-      const savedAplMode = localStorage.getItem('servis_apl_filter_mode');
-      if (savedAplMode) setAplFilterMode(savedAplMode as 'some' | 'every');
-      const savedAplDisplayMode = localStorage.getItem('servis_apl_display_mode');
-      if (savedAplDisplayMode) setAplDisplayMode(savedAplDisplayMode as 'diagram' | 'angka');
-      
-      // Load general filter states
-      const savedSearchTerm = localStorage.getItem('servis_search_term');
-      if (savedSearchTerm) setSearchTerm(savedSearchTerm);
-      const savedLocationFilter = localStorage.getItem('servis_location_filter');
-      if (savedLocationFilter) setLocationFilter(savedLocationFilter);
-      const savedActiveCategory = localStorage.getItem('servis_active_category_id');
-      if (savedActiveCategory) setActiveCategoryId(savedActiveCategory);
-    } catch { }
-  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -86,42 +61,6 @@ export default function MaintenanceServisPage() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
-
-  useEffect(() => {
-    try { localStorage.setItem('servis_hidden_columns', JSON.stringify(hiddenColumns)); } catch { }
-  }, [hiddenColumns]);
-
-  useEffect(() => {
-    try { localStorage.setItem('servis_collapsed_cols', JSON.stringify(collapsedCols)); } catch { }
-  }, [collapsedCols]);
-
-  useEffect(() => {
-    try { localStorage.setItem('servis_apl_filter_cols', JSON.stringify(aplFilterCols)); } catch { }
-  }, [aplFilterCols]);
-
-  useEffect(() => {
-    try { localStorage.setItem('servis_apl_filter_colors', JSON.stringify(aplFilterColors)); } catch { }
-  }, [aplFilterColors]);
-
-  useEffect(() => {
-    try { localStorage.setItem('servis_apl_filter_mode', aplFilterMode); } catch { }
-  }, [aplFilterMode]);
-
-  useEffect(() => {
-    try { localStorage.setItem('servis_apl_display_mode', aplDisplayMode); } catch { }
-  }, [aplDisplayMode]);
-
-  useEffect(() => {
-    try { localStorage.setItem('servis_search_term', searchTerm); } catch { }
-  }, [searchTerm]);
-
-  useEffect(() => {
-    try { localStorage.setItem('servis_location_filter', locationFilter); } catch { }
-  }, [locationFilter]);
-
-  useEffect(() => {
-    try { localStorage.setItem('servis_active_category_id', activeCategoryId); } catch { }
-  }, [activeCategoryId]);
 
 
   const toggleCollapse = (id: string, e: React.MouseEvent) => {
@@ -238,259 +177,14 @@ export default function MaintenanceServisPage() {
       .catch((err) => console.error("Failed to fetch category units:", err));
   }, []);
 
-  const exportToExcel = async () => {
-    if (filteredData.length === 0) return;
-
-    const headers = [
-      ...visibleFixedCols.map(col => col.name),
-      ...visibleAplColumns.map(col => col.name),
-    ];
-
-    const rows = filteredData.map((u, index) => {
-      const row: any = {};
-
-      visibleFixedCols.forEach(col => {
-        if (col.id === 'no') {
-          row[col.name] = index + 1;
-        } else if (col.id === 'code') {
-          row[col.name] = u.code || '';
-        } else if (col.id === 'operator') {
-          row[col.name] =
-            u.operator?.full_name ||
-            u.operator?.name ||
-            '';
-        } else if (col.id === 'lokasi') {
-          row[col.name] =
-            u.location?.name ||
-            (typeof u.location === 'string' ? u.location : '');
-        } else if (col.id === 'hm') {
-          row[col.name] = u.hm || 0;
-        } else if (col.id === 'hours') {
-          row[col.name] = u.hours || 0;
-        }
-      });
-
-      visibleAplColumns.forEach(col => {
-        const aplRecord = u.aplData?.find(
-          (a: any) => a.category_apl_id === col.id
-        );
-
-        row[col.name] = aplRecord
-          ? (aplRecord.input ?? 0)
-          : 0;
-      });
-
-      return row;
+  const handleExport = async () => {
+    await exportServisToExcel({
+      filteredData,
+      visibleFixedCols,
+      visibleAplColumns,
+      categories,
+      activeCategoryId
     });
-
-    const workbook = new ExcelJS.Workbook();
-
-    workbook.creator = 'Your Application';
-    workbook.lastModifiedBy = 'Your Application';
-    workbook.created = new Date();
-    workbook.modified = new Date();
-
-    const activeCategory = categories.find(
-      c => c.id === activeCategoryId
-    );
-
-    const categoryName = activeCategory
-      ? activeCategory.name.replace(/\s+/g, '_')
-      : 'Semua';
-
-    const worksheet = workbook.addWorksheet(
-      categoryName.slice(0, 31)
-    );
-
-    worksheet.columns = headers.map(header => ({
-      header,
-      key: header,
-      width: Math.max(header.length + 4, 14),
-    }));
-
-    rows.forEach(row => {
-      worksheet.addRow(row);
-    });
-    const headerRow = worksheet.getRow(1);
-
-    headerRow.height = 30;
-
-    headerRow.eachCell(cell => {
-      cell.font = {
-        bold: true,
-        size: 11,
-      };
-
-      cell.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: {
-          argb: 'FFD9EAF7',
-        },
-      };
-
-      cell.alignment = {
-        vertical: 'middle',
-        horizontal: 'center',
-        wrapText: true,
-      };
-
-      cell.border = {
-        top: {
-          style: 'thin',
-          color: {
-            argb: 'FF808080',
-          },
-        },
-        bottom: {
-          style: 'thin',
-          color: {
-            argb: 'FF808080',
-          },
-        },
-        left: {
-          style: 'thin',
-          color: {
-            argb: 'FF808080',
-          },
-        },
-        right: {
-          style: 'thin',
-          color: {
-            argb: 'FF808080',
-          },
-        },
-      };
-    });
-
-    worksheet.eachRow((row, rowNumber) => {
-      if (rowNumber === 1) return;
-
-      row.height = 22;
-
-      row.eachCell(cell => {
-        cell.alignment = {
-          vertical: 'middle',
-          horizontal: 'left',
-        };
-
-        cell.border = {
-          top: {
-            style: 'thin',
-            color: {
-              argb: 'FFD9D9D9',
-            },
-          },
-          bottom: {
-            style: 'thin',
-            color: {
-              argb: 'FFD9D9D9',
-            },
-          },
-          left: {
-            style: 'thin',
-            color: {
-              argb: 'FFD9D9D9',
-            },
-          },
-          right: {
-            style: 'thin',
-            color: {
-              argb: 'FFD9D9D9',
-            },
-          },
-        };
-      });
-    });
-
-    headers.forEach((header, index) => {
-      const column = worksheet.getColumn(index + 1);
-      if (visibleFixedCols[index]?.id === 'no') {
-        column.alignment = {
-          horizontal: 'center',
-          vertical: 'middle',
-        };
-      }
-
-      // Numeric columns
-      const fixedColumn = visibleFixedCols.find(
-        col => col.name === header
-      );
-
-      if (
-        fixedColumn?.id === 'hm' ||
-        fixedColumn?.id === 'hours' ||
-        visibleAplColumns.some(col => col.name === header)
-      ) {
-        column.alignment = {
-          horizontal: 'center',
-          vertical: 'middle',
-        };
-
-        column.numFmt = '#,##0.00';
-      }
-    });
-
-    for (let i = 1; i <= worksheet.columnCount; i++) {
-      const column = worksheet.getColumn(i);
-
-      let maxLength = 0;
-
-      column.eachCell({ includeEmpty: true }, cell => {
-        const value = cell.value;
-
-        let length = 0;
-
-        if (value !== null && value !== undefined) {
-          if (typeof value === 'object') {
-            length = JSON.stringify(value).length;
-          } else {
-            length = String(value).length;
-          }
-        }
-
-        maxLength = Math.max(maxLength, length);
-      });
-
-      column.width = Math.min(
-        Math.max(maxLength + 4, 14),
-        40
-      );
-    }
-
-    worksheet.views = [
-      {
-        state: 'frozen',
-        ySplit: 1,
-      },
-    ];
-    worksheet.autoFilter = {
-      from: 'A1',
-      to: `${worksheet.getColumn(worksheet.columnCount).letter}1`,
-    };
-    const date = new Date()
-      .toISOString()
-      .split('T')[0];
-    const fileName =
-      `Data_Servis_${categoryName}_${date}.xlsx`;
-
-    const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob(
-      [buffer],
-      {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      }
-    );
-
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-
-    link.href = url;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
   };
 
   const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -599,7 +293,7 @@ export default function MaintenanceServisPage() {
 
               {/* Export Button */}
               <button
-                onClick={exportToExcel}
+                onClick={handleExport}
                 disabled={isLoading || filteredData.length === 0}
                 className="flex items-center justify-center gap-2 rounded-xl border border-emerald-500/50 bg-emerald-500/10 px-5 py-2.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400 transition hover:bg-emerald-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -1017,67 +711,10 @@ export default function MaintenanceServisPage() {
 
       {/* Import Result Modal */}
       {importResult && mounted && createPortal(
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/60 p-4">
-          <div className="w-full max-w-xl rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 shadow-2xl flex flex-col max-h-[80vh]">
-            <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-white/10">
-              <div className="flex items-center gap-3">
-                <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${importResult.notUpdated.length === 0
-                  ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-500'
-                  : 'bg-amber-100 dark:bg-amber-500/10 text-amber-500'
-                  }`}>
-                  {importResult.notUpdated.length === 0 ? <FaCheckCircle size={18} /> : <FaExclamationTriangle size={18} />}
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">Hasil Import Excel</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    {importResult.notUpdated.length === 0
-                      ? 'Semua unit berhasil diperbarui!'
-                      : `${importResult.notUpdated.length} unit tidak dapat diperbarui`
-                    }
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setImportResult(null)}
-                className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
-              >
-                <FaTimes size={16} />
-              </button>
-            </div>
-
-            {importResult.notUpdated.length > 0 && (
-              <div className="flex-1 overflow-y-auto p-4">
-                <p className="text-xs font-semibold uppercase text-slate-400 mb-3">Unit yang tidak berhasil diperbarui:</p>
-                <div className="flex flex-col gap-2">
-                  {importResult.notUpdated.map((item: any, i: number) => (
-                    <div key={i} className="rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 p-3">
-                      {item.codeUnit ? (
-                        <>
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-sm text-slate-800 dark:text-slate-100">{item.codeUnit}</span>
-                            <span className="text-xs text-slate-500 dark:text-slate-400">{item.sheet}</span>
-                          </div>
-                          <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">{item.reason}</p>
-                        </>
-                      ) : (
-                        <p className="text-sm text-rose-600 dark:text-rose-400">{item.reason}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="p-4 border-t border-slate-200 dark:border-white/10">
-              <button
-                onClick={() => setImportResult(null)}
-                className="w-full rounded-xl bg-sky-500 py-2.5 text-sm font-semibold text-white hover:bg-sky-600 transition"
-              >
-                Tutup
-              </button>
-            </div>
-          </div>
-        </div>,
+        <ImportResultModal 
+          importResult={importResult} 
+          onClose={() => setImportResult(null)} 
+        />,
         document.body
       )}
 
