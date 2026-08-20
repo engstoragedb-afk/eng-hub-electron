@@ -1,6 +1,7 @@
-import { useState } from "react";
-import { FaTimes } from "react-icons/fa";
+import { useState, useEffect, useRef } from "react";
+import { FaTimes, FaCloudUploadAlt } from "react-icons/fa";
 import { aplHistoryService, aplUnitService, unitService } from "@/services";
+import toast from "react-hot-toast";
 
 type AplEditFormModalProps = {
   editingAplItem: any;
@@ -25,6 +26,27 @@ export default function AplEditFormModal({
   const [replaceProofImages, setReplaceProofImages] = useState<File[]>([]);
   const [isSavingApl, setIsSavingApl] = useState(false);
   const [isVaultFocused, setIsVaultFocused] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Handle global paste event
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      // Only handle if replacing APL is active
+      if (!isReplacingApl) return;
+      
+      if (e.clipboardData && e.clipboardData.files.length > 0) {
+        const files = Array.from(e.clipboardData.files).filter(f => f.type.startsWith('image/'));
+        if (files.length > 0) {
+          e.preventDefault();
+          setReplaceProofImages(prev => [...prev, ...files]);
+        }
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [isReplacingApl]);
 
   const handleSaveAplItem = async (closeModal = false, navigateNext = false) => {
     if (!editingAplItem || !editingAplItem.category_apl_id) return;
@@ -71,6 +93,8 @@ export default function AplEditFormModal({
       const updated = await unitService.getUnitDetails(apiUnit.id as string);
       setApiUnit(updated);
       
+      toast.success("Data berhasil disimpan!", { duration: 3000 });
+      
       if (closeModal) {
         onClose();
       } else if (navigateNext) {
@@ -88,7 +112,7 @@ export default function AplEditFormModal({
       }
     } catch (err) {
       console.error("Failed to save APL unit data:", err);
-      alert("Gagal menyimpan data APL.");
+      toast.error("Gagal menyimpan data APL.", { duration: 3000 });
     } finally {
       setIsSavingApl(false);
     }
@@ -353,18 +377,43 @@ export default function AplEditFormModal({
               <div>
                 <label className="mb-1 block text-sm font-medium text-sky-800 dark:text-sky-200">
                   Bukti Foto (Opsional)
+                  <span className="text-xs font-normal text-slate-500 ml-2">(Drag & drop atau Paste/Ctrl+V gambar di sini)</span>
                 </label>
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  className="w-full rounded-xl border border-sky-300 bg-white p-2 text-sm text-slate-500 file:mr-4 file:rounded-lg file:border-0 file:bg-sky-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-sky-700 hover:file:bg-sky-200 dark:border-white/10 dark:bg-slate-800 dark:file:bg-sky-900/30 dark:file:text-sky-400"
-                  onChange={(e) => {
-                    if (e.target.files) {
-                      setReplaceProofImages(prev => [...prev, ...Array.from(e.target.files!)]);
+                <div
+                  className={`relative flex min-h-[100px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-4 text-center transition-colors ${
+                    isDragging
+                      ? "border-sky-500 bg-sky-50 dark:border-sky-400 dark:bg-sky-900/20"
+                      : "border-slate-300 hover:bg-slate-50 dark:border-white/20 dark:hover:bg-slate-800/50"
+                  }`}
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDragging(false);
+                    if (e.dataTransfer.files) {
+                      const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+                      setReplaceProofImages(prev => [...prev, ...files]);
                     }
                   }}
-                />
+                >
+                  <FaCloudUploadAlt className={`mb-2 text-3xl ${isDragging ? "text-sky-500" : "text-slate-400"}`} />
+                  <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+                    Klik atau Seret Gambar ke Sini
+                  </p>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    multiple
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files) {
+                        setReplaceProofImages(prev => [...prev, ...Array.from(e.target.files!)]);
+                      }
+                    }}
+                  />
+                </div>
                 {replaceProofImages.length > 0 && (
                   <div className="mt-3 grid grid-cols-4 gap-3">
                     {replaceProofImages.map((file, idx) => (

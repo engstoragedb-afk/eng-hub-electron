@@ -623,8 +623,8 @@ export default function MaintenanceServisPage() {
           </div>
 
           {/* Filter Bar */}
-          <div className="flex flex-col sm:flex-row gap-4 bg-slate-50/50 dark:bg-white/5 p-4 rounded-2xl border border-slate-200 dark:border-white/10">
-            <div className="relative flex-1 max-w-md">
+          <div className="flex flex-col lg:flex-row flex-wrap items-center gap-3 bg-slate-50/50 dark:bg-white/5 p-4 rounded-2xl border border-slate-200 dark:border-white/10">
+            <div className="relative flex-1 min-w-[150px] sm:min-w-[200px] lg:max-w-md shrink-0">
               <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
@@ -637,7 +637,7 @@ export default function MaintenanceServisPage() {
             <select
               value={locationFilter}
               onChange={(e) => setLocationFilter(e.target.value)}
-              className="rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-sky-500/50 transition-colors sm:min-w-[200px]"
+              className="rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-sky-500/50 transition-colors sm:min-w-[150px] shrink-0"
             >
               <option value="Semua">Semua Lokasi</option>
               {uniqueLocations.map(loc => (
@@ -646,8 +646,8 @@ export default function MaintenanceServisPage() {
             </select>
 
             {/* Filter Kolom APL */}
-            <div className="flex flex-col sm:flex-row items-center gap-2">
-              <div className="relative w-full sm:w-auto">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative w-full sm:w-auto shrink-0">
                 <button
                   onClick={() => setShowAplFilterMenu(!showAplFilterMenu)}
                   className="rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 flex items-center justify-between min-w-[150px] w-full"
@@ -688,10 +688,10 @@ export default function MaintenanceServisPage() {
               {aplFilterCols.length > 0 && (
                 <>
                   {/* Status multi-select */}
-                  <div className="relative">
+                  <div className="relative shrink-0">
                     <button
                       onClick={() => setShowAplStatusMenu(v => !v)}
-                      className="rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm flex items-center gap-2 min-w-[140px]"
+                      className="rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm flex items-center gap-2 min-w-[130px] justify-between"
                     >
                       <span className="truncate text-slate-900 dark:text-slate-100">
                         {aplFilterColors.length === 0 ? 'Semua Status' : `${aplFilterColors.length} Status`}
@@ -721,7 +721,7 @@ export default function MaintenanceServisPage() {
 
                   {/* Mode toggle: Salah Satu / Semua Harus */}
                   {aplFilterColors.length > 0 && (
-                    <div className="flex rounded-xl border border-slate-300 dark:border-white/10 overflow-hidden text-xs font-semibold">
+                    <div className="flex rounded-xl border border-slate-300 dark:border-white/10 overflow-hidden text-xs font-semibold shrink-0">
                       <button
                         onClick={() => setAplFilterMode('some')}
                         className={`px-3 py-2.5 transition-colors ${
@@ -748,12 +748,12 @@ export default function MaintenanceServisPage() {
               )}
             </div>
 
-            <div className="relative ml-auto flex items-center gap-2">
+            <div className="relative lg:ml-auto flex flex-wrap items-center gap-2 shrink-0">
               {/* APL View Toggle */}
-              <div className="flex rounded-xl border border-slate-300 dark:border-white/10 overflow-hidden text-xs font-semibold">
+              <div className="flex rounded-xl border border-slate-300 dark:border-white/10 overflow-hidden text-xs font-semibold shrink-0">
                 <button
                   onClick={() => setAplDisplayMode('diagram')}
-                  className={`px-3 py-2.5 flex items-center gap-1.5 transition-colors ${
+                  className={`px-3 py-2.5 flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 ${
                     aplDisplayMode === 'diagram'
                       ? 'bg-slate-700 text-white dark:bg-slate-600'
                       : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
@@ -769,7 +769,7 @@ export default function MaintenanceServisPage() {
                 </button>
                 <button
                   onClick={() => setAplDisplayMode('angka')}
-                  className={`px-3 py-2.5 flex items-center gap-1.5 border-l border-slate-300 dark:border-white/10 transition-colors ${
+                  className={`px-3 py-2.5 flex items-center gap-1.5 border-l border-slate-300 dark:border-white/10 transition-colors whitespace-nowrap shrink-0 ${
                     aplDisplayMode === 'angka'
                       ? 'bg-slate-700 text-white dark:bg-slate-600'
                       : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
@@ -784,7 +784,7 @@ export default function MaintenanceServisPage() {
               {/* Kolom Tabel button */}
               <button
                 onClick={() => setShowColumnMenu(!showColumnMenu)}
-                className="flex items-center gap-2 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
+                className="flex items-center gap-2 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800 shrink-0 whitespace-nowrap"
               >
                 <FaColumns /> Kolom Tabel
               </button>

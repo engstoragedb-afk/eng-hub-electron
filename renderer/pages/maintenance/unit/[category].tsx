@@ -15,7 +15,7 @@ interface UnitType {
   code: string;
   image?: string;
   category: string;
-  status: "Siap" | "Perbaikan";
+  status: "Siap" | "Perbaikan" | "RJ Rawat Jalan";
   hm: number;
   hours: number;
   location: string;
@@ -23,7 +23,7 @@ interface UnitType {
   gpsStatus?: string;
 }
 
-type UnitStatus = "Semua" | "Siap" | "Perbaikan";
+type UnitStatus = "Semua" | "Siap" | "Perbaikan" | "RJ Rawat Jalan";
 
 const hmRanges = ["Semua", "0-1000", "1001-1200", "1201-1500", "1501-9999"] as const;
 const hoursRanges = ["Semua", "0-400", "401-600", "601-700", "701-9999"] as const;
@@ -228,7 +228,7 @@ export default function MaintenanceUnitList() {
       [hours_min, hours_max] = hoursRange.split("-").map(Number);
     }
 
-    const apiStatus = status !== "Semua" ? (status === "Siap" ? "READY" : "BREAKDOWN") : undefined;
+    const apiStatus = status !== "Semua" ? (status === "Siap" ? "READY" : status === "Perbaikan" ? "BREAKDOWN" : "RAWAT_JALAN") : undefined;
 
     const params: any = {
       page: currentPage,
@@ -248,7 +248,7 @@ export default function MaintenanceUnitList() {
             code: item.name,
             image: item.image,
             category: item.category?.name || category,
-            status: item.status === "READY" ? "Siap" : "Perbaikan",
+            status: item.status === "READY" ? "Siap" : item.status === "BREAKDOWN" ? "Perbaikan" : "RJ Rawat Jalan",
             hm: item.hm || 0,
             hours: item.hours || 0,
             location: item.location || "Site A",
@@ -264,7 +264,7 @@ export default function MaintenanceUnitList() {
 
   const categoryName = typeof category === "string" ? category : "";
 
-  const statusOptions = ["Semua", "Siap", "Perbaikan"];
+  const statusOptions = ["Semua", "Siap", "Perbaikan", "RJ Rawat Jalan"];
   const gpsStatusOptions = [
     { label: "Semua", value: "Semua" },
     { label: "Connected", value: EGPSStatus.CONNECTED },

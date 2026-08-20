@@ -132,6 +132,20 @@ export default function UnitDetailPage() {
   }, []);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const getStatusDisplay = (status?: string | null) => {
+    if (status === 'READY') return 'Siap';
+    if (status === 'RAWAT_JALAN') return 'RJ Rawat Jalan';
+    if (status === 'BREAKDOWN') return 'Breakdown';
+    return status || 'Siap';
+  };
+
+  const getStatusBackend = (display: string) => {
+    if (display === 'Siap') return 'READY';
+    if (display === 'RJ Rawat Jalan') return 'RAWAT_JALAN';
+    if (display === 'Breakdown') return 'BREAKDOWN';
+    return display;
+  };
+
   const getGpsStatusColor = (status?: string | null) => {
     switch (status) {
       case EGPSStatus.CONNECTED:
@@ -545,11 +559,11 @@ export default function UnitDetailPage() {
                     >
                       {isEditingStatus ? (
                         <select
-                          value={unit.status}
+                          value={getStatusDisplay(unit.status)}
                           onChange={(e) => {
                             setIsEditingStatus(false);
-                            if (e.target.value !== unit.status) {
-                              handleUpdateUnit({ status: e.target.value === "Siap" ? "READY" : "BREAKDOWN" });
+                            if (e.target.value !== getStatusDisplay(unit.status)) {
+                              handleUpdateUnit({ status: getStatusBackend(e.target.value) });
                             }
                           }}
                           onBlur={() => setIsEditingStatus(false)}
@@ -557,12 +571,13 @@ export default function UnitDetailPage() {
                           autoFocus
                         >
                           <option value="Siap">Siap</option>
+                          <option value="RJ Rawat Jalan">RJ Rawat Jalan</option>
                           <option value="Breakdown">Breakdown</option>
                         </select>
                       ) : (
-                        <Badge tone={unit.status === "Siap" ? "success" : "warning"}>
-                          {unit.status === "Siap" ? <FaCheckCircle className="mr-1" /> : <FaWrench className="mr-1" />}
-                          {unit.status}
+                        <Badge tone={getStatusDisplay(unit.status) === "Siap" ? "success" : getStatusDisplay(unit.status) === "RJ Rawat Jalan" ? "warning" : "critical"}>
+                          {getStatusDisplay(unit.status) === "Siap" ? <FaCheckCircle className="mr-1" /> : <FaWrench className="mr-1" />}
+                          {getStatusDisplay(unit.status)}
                         </Badge>
                       )}
                     </div>
