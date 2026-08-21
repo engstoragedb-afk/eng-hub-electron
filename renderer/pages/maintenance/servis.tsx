@@ -42,8 +42,11 @@ export default function MaintenanceServisPage() {
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ notUpdated: any[] } | null>(null);
   const [mounted, setMounted] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedUnitsMap, setSelectedUnitsMap] = useState<Record<string, any>>({});
   const [showPrintModal, setShowPrintModal] = useState(false);
+  const [isPlanPSMode, setIsPlanPSMode] = useLocalStorage("servis_plan_ps_mode", false);
+  const [psStatuses, setPsStatuses] = useState<Record<string, 'Wait' | 'Progress' | 'Done'>>({});
+  const [psSelectedApls, setPsSelectedApls] = useState<Record<string, string>>({});
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -183,7 +186,10 @@ export default function MaintenanceServisPage() {
       visibleFixedCols,
       visibleAplColumns,
       categories,
-      activeCategoryId
+      activeCategoryId,
+      isPlanPSMode,
+      psStatuses,
+      psSelectedApls
     });
   };
 
@@ -247,12 +253,18 @@ export default function MaintenanceServisPage() {
         <div className="flex flex-col gap-6 p-4">
 
           {/* Header Action & Tabs Kategori */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide flex-1">
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide flex-1 min-w-0">
               {categories.map((cat) => (
                 <button
                   key={cat.id}
-                  onClick={() => setActiveCategoryId(cat.id)}
+                  onClick={() => {
+                    if (activeCategoryId !== cat.id) {
+                      setActiveCategoryId(cat.id);
+                      setAplFilterCols([]);
+                      setAplFilterColors([]);
+                    }
+                  }}
                   className={`flex-shrink-0 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${activeCategoryId === cat.id
                     ? "bg-sky-500 text-white shadow-md shadow-sky-500/20 border border-sky-400"
                     : "bg-white dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-slate-700"
@@ -281,13 +293,13 @@ export default function MaintenanceServisPage() {
               <button
                 onClick={() => importInputRef.current?.click()}
                 disabled={isImporting}
-                className="flex items-center justify-center gap-2 rounded-xl border border-violet-500/50 bg-violet-500/10 px-5 py-2.5 text-sm font-semibold text-violet-600 dark:text-violet-400 transition hover:bg-violet-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Import HM dari file Excel (format khusus)"
+                className="flex items-center justify-center gap-2 rounded-xl border border-violet-500/50 bg-violet-500/10 p-2.5 text-sm font-semibold text-violet-600 dark:text-violet-400 transition hover:bg-violet-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Import HM dari file Excel"
               >
                 {isImporting ? (
-                  <><div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" /> Mengimport...</>
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
                 ) : (
-                  <><FaUpload size={14} /> Import Excel</>
+                  <FaUpload size={16} />
                 )}
               </button>
 
@@ -295,24 +307,38 @@ export default function MaintenanceServisPage() {
               <button
                 onClick={handleExport}
                 disabled={isLoading || filteredData.length === 0}
-                className="flex items-center justify-center gap-2 rounded-xl border border-emerald-500/50 bg-emerald-500/10 px-5 py-2.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400 transition hover:bg-emerald-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center gap-2 rounded-xl border border-emerald-500/50 bg-emerald-500/10 p-2.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400 transition hover:bg-emerald-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Export ke Excel"
               >
-                <FaFileExcel size={16} /> Export Excel
+                <FaFileExcel size={16} />
               </button>
 
               {/* Print Button - only when items selected */}
-              {selectedIds.size > 0 && (
+              {Object.keys(selectedUnitsMap).length > 0 && (
                 <button
                   onClick={() => setShowPrintModal(true)}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-sky-500/50 bg-sky-500/10 px-5 py-2.5 text-sm font-semibold text-sky-600 dark:text-sky-400 transition hover:bg-sky-500 hover:text-white"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-sky-500/50 bg-sky-500/10 p-2.5 text-sm font-semibold text-sky-600 dark:text-sky-400 transition hover:bg-sky-500 hover:text-white"
+                  title="Print Laporan"
                 >
-                  <FaPrint size={14} />
-                  <span>Print</span>
-                  <span className="bg-sky-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center leading-none">
-                    {selectedIds.size}
-                  </span>
+                  <div className="relative">
+                    <FaPrint size={16} />
+                    <span className="absolute -top-2 -right-3 bg-sky-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none shadow-sm">
+                      {Object.keys(selectedUnitsMap).length}
+                    </span>
+                  </div>
                 </button>
               )}
+              
+              {/* Plan PS Toggle */}
+              <label className="flex items-center gap-2 cursor-pointer ml-2">
+                <div 
+                  className={`w-11 h-6 rounded-full flex items-center px-1 transition-colors ${isPlanPSMode ? "bg-sky-500" : "bg-slate-300 dark:bg-slate-600"}`}
+                  onClick={() => setIsPlanPSMode(!isPlanPSMode)}
+                >
+                  <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${isPlanPSMode ? "translate-x-5" : "translate-x-0"}`} />
+                </div>
+                <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Plan PS</span>
+              </label>
             </div>
           </div>
 
@@ -340,140 +366,144 @@ export default function MaintenanceServisPage() {
             </select>
 
             {/* Filter Kolom APL */}
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative w-full sm:w-auto shrink-0">
-                <button
-                  onClick={() => setShowAplFilterMenu(!showAplFilterMenu)}
-                  className="rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 flex items-center justify-between min-w-[150px] w-full"
-                >
-                  <span className="truncate max-w-[150px]">
-                    {aplFilterCols.length === 0 
-                      ? "-- Semua APL --" 
-                      : `${aplFilterCols.length} APL Dipilih`}
-                  </span>
-                  <FaChevronDown className="ml-2 text-slate-400 text-xs shrink-0" />
-                </button>
-                
-                {showAplFilterMenu && (
-                  <div className="absolute left-0 top-full mt-2 w-64 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 p-2 shadow-xl z-50">
-                    <div className="max-h-64 overflow-y-auto flex flex-col gap-1 scrollbar-hide">
-                      {aplColumns.map(col => (
-                        <label key={col.id} className="flex items-center gap-3 px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={aplFilterCols.includes(col.id)}
-                            onChange={() => {
-                               setAplFilterCols(prev => {
-                                 const next = prev.includes(col.id) ? prev.filter(c => c !== col.id) : [...prev, col.id];
-                                 if (next.length === 0) setAplFilterColors([]);
-                                 return next;
-                               });
-                            }}
-                            className="rounded border-slate-300 text-sky-500 focus:ring-sky-500"
-                          />
-                          <span className="text-sm text-slate-700 dark:text-slate-300 truncate">{col.name}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {aplFilterCols.length > 0 && (
-                <>
-                  {/* Status multi-select */}
-                  <div className="relative shrink-0">
-                    <button
-                      onClick={() => setShowAplStatusMenu(v => !v)}
-                      className="rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm flex items-center gap-2 min-w-[130px] justify-between"
-                    >
-                      <span className="truncate text-slate-900 dark:text-slate-100">
-                        {aplFilterColors.length === 0 ? 'Semua Status' : `${aplFilterColors.length} Status`}
-                      </span>
-                      <FaChevronDown className="text-slate-400 text-xs shrink-0" />
-                    </button>
-                    {showAplStatusMenu && (
-                      <div className="absolute left-0 top-full mt-2 w-52 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 p-2 shadow-xl z-50">
-                        <div className="flex flex-col gap-1">
-                          {STATUS_OPTIONS.map(opt => (
-                            <label key={opt.value} className="flex items-center gap-3 px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={aplFilterColors.includes(opt.value)}
-                                onChange={() => setAplFilterColors(prev =>
-                                  prev.includes(opt.value) ? prev.filter(c => c !== opt.value) : [...prev, opt.value]
-                                )}
-                                className="rounded border-slate-300 text-sky-500 focus:ring-sky-500"
-                              />
-                              <span className="text-sm text-slate-700 dark:text-slate-300">{opt.label}</span>
-                            </label>
-                          ))}
-                        </div>
+            {!isPlanPSMode && (
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative w-full sm:w-auto shrink-0">
+                  <button
+                    onClick={() => setShowAplFilterMenu(!showAplFilterMenu)}
+                    className="rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 flex items-center justify-between min-w-[150px] w-full"
+                  >
+                    <span className="truncate max-w-[150px]">
+                      {aplFilterCols.length === 0 
+                        ? "-- Semua APL --" 
+                        : `${aplFilterCols.length} APL Dipilih`}
+                    </span>
+                    <FaChevronDown className="ml-2 text-slate-400 text-xs shrink-0" />
+                  </button>
+                  
+                  {showAplFilterMenu && (
+                    <div className="absolute left-0 top-full mt-2 w-64 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 p-2 shadow-xl z-50">
+                      <div className="max-h-64 overflow-y-auto flex flex-col gap-1 scrollbar-hide">
+                        {aplColumns.map(col => (
+                          <label key={col.id} className="flex items-center gap-3 px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={aplFilterCols.includes(col.id)}
+                              onChange={() => {
+                                 setAplFilterCols(prev => {
+                                   const next = prev.includes(col.id) ? prev.filter(c => c !== col.id) : [...prev, col.id];
+                                   if (next.length === 0) setAplFilterColors([]);
+                                   return next;
+                                 });
+                              }}
+                              className="rounded border-slate-300 text-sky-500 focus:ring-sky-500"
+                            />
+                            <span className="text-sm text-slate-700 dark:text-slate-300 truncate">{col.name}</span>
+                          </label>
+                        ))}
                       </div>
-                    )}
-                  </div>
-
-                  {/* Mode toggle: Salah Satu / Semua Harus */}
-                  {aplFilterColors.length > 0 && (
-                    <div className="flex rounded-xl border border-slate-300 dark:border-white/10 overflow-hidden text-xs font-semibold shrink-0">
-                      <button
-                        onClick={() => setAplFilterMode('some')}
-                        className={`px-3 py-2.5 transition-colors ${
-                          aplFilterMode === 'some'
-                            ? 'bg-sky-500 text-white'
-                            : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-                        }`}
-                      >
-                        Salah Satu
-                      </button>
-                      <button
-                        onClick={() => setAplFilterMode('every')}
-                        className={`px-3 py-2.5 border-l border-slate-300 dark:border-white/10 transition-colors ${
-                          aplFilterMode === 'every'
-                            ? 'bg-sky-500 text-white'
-                            : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-                        }`}
-                      >
-                        Semua Harus
-                      </button>
                     </div>
                   )}
-                </>
-              )}
-            </div>
+                </div>
+
+                {aplFilterCols.length > 0 && (
+                  <>
+                    {/* Status multi-select */}
+                    <div className="relative shrink-0">
+                      <button
+                        onClick={() => setShowAplStatusMenu(v => !v)}
+                        className="rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm flex items-center gap-2 min-w-[130px] justify-between"
+                      >
+                        <span className="truncate text-slate-900 dark:text-slate-100">
+                          {aplFilterColors.length === 0 ? 'Semua Status' : `${aplFilterColors.length} Status`}
+                        </span>
+                        <FaChevronDown className="text-slate-400 text-xs shrink-0" />
+                      </button>
+                      {showAplStatusMenu && (
+                        <div className="absolute left-0 top-full mt-2 w-52 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 p-2 shadow-xl z-50">
+                          <div className="flex flex-col gap-1">
+                            {STATUS_OPTIONS.map(opt => (
+                              <label key={opt.value} className="flex items-center gap-3 px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={aplFilterColors.includes(opt.value)}
+                                  onChange={() => setAplFilterColors(prev =>
+                                    prev.includes(opt.value) ? prev.filter(c => c !== opt.value) : [...prev, opt.value]
+                                  )}
+                                  className="rounded border-slate-300 text-sky-500 focus:ring-sky-500"
+                                />
+                                <span className="text-sm text-slate-700 dark:text-slate-300">{opt.label}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Mode toggle: Salah Satu / Semua Harus */}
+                    {aplFilterColors.length > 0 && (
+                      <div className="flex rounded-xl border border-slate-300 dark:border-white/10 overflow-hidden text-xs font-semibold shrink-0">
+                        <button
+                          onClick={() => setAplFilterMode('some')}
+                          className={`px-3 py-2.5 transition-colors ${
+                            aplFilterMode === 'some'
+                              ? 'bg-sky-500 text-white'
+                              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                          }`}
+                        >
+                          Salah Satu
+                        </button>
+                        <button
+                          onClick={() => setAplFilterMode('every')}
+                          className={`px-3 py-2.5 border-l border-slate-300 dark:border-white/10 transition-colors ${
+                            aplFilterMode === 'every'
+                              ? 'bg-sky-500 text-white'
+                              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                          }`}
+                        >
+                          Semua Harus
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
 
             <div className="relative lg:ml-auto flex flex-wrap items-center gap-2 shrink-0">
               {/* APL View Toggle */}
-              <div className="flex rounded-xl border border-slate-300 dark:border-white/10 overflow-hidden text-xs font-semibold shrink-0">
-                <button
-                  onClick={() => setAplDisplayMode('diagram')}
-                  className={`px-3 py-2.5 flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 ${
-                    aplDisplayMode === 'diagram'
-                      ? 'bg-slate-700 text-white dark:bg-slate-600'
-                      : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-                  }`}
-                  title="Tampilkan diagram batang"
-                >
-                  <svg width="12" height="14" viewBox="0 0 12 14" fill="currentColor">
-                    <rect x="0" y="8" width="3" height="6" rx="0.5"/>
-                    <rect x="4.5" y="3" width="3" height="11" rx="0.5"/>
-                    <rect x="9" y="0" width="3" height="14" rx="0.5"/>
-                  </svg>
-                  Diagram
-                </button>
-                <button
-                  onClick={() => setAplDisplayMode('angka')}
-                  className={`px-3 py-2.5 flex items-center gap-1.5 border-l border-slate-300 dark:border-white/10 transition-colors whitespace-nowrap shrink-0 ${
-                    aplDisplayMode === 'angka'
-                      ? 'bg-slate-700 text-white dark:bg-slate-600'
-                      : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-                  }`}
-                  title="Tampilkan angka saja"
-                >
-                  <span className="font-mono font-bold">123</span>
-                  Angka
-                </button>
-              </div>
+              {!isPlanPSMode && (
+                <div className="flex rounded-xl border border-slate-300 dark:border-white/10 overflow-hidden text-xs font-semibold shrink-0">
+                  <button
+                    onClick={() => setAplDisplayMode('diagram')}
+                    className={`px-3 py-2.5 flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 ${
+                      aplDisplayMode === 'diagram'
+                        ? 'bg-slate-700 text-white dark:bg-slate-600'
+                        : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    }`}
+                    title="Tampilkan diagram batang"
+                  >
+                    <svg width="12" height="14" viewBox="0 0 12 14" fill="currentColor">
+                      <rect x="0" y="8" width="3" height="6" rx="0.5"/>
+                      <rect x="4.5" y="3" width="3" height="11" rx="0.5"/>
+                      <rect x="9" y="0" width="3" height="14" rx="0.5"/>
+                    </svg>
+                    Diagram
+                  </button>
+                  <button
+                    onClick={() => setAplDisplayMode('angka')}
+                    className={`px-3 py-2.5 flex items-center gap-1.5 border-l border-slate-300 dark:border-white/10 transition-colors whitespace-nowrap shrink-0 ${
+                      aplDisplayMode === 'angka'
+                        ? 'bg-slate-700 text-white dark:bg-slate-600'
+                        : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    }`}
+                    title="Tampilkan angka saja"
+                  >
+                    <span className="font-mono font-bold">123</span>
+                    Angka
+                  </button>
+                </div>
+              )}
 
               {/* Kolom Tabel button */}
               <button
@@ -529,14 +559,16 @@ export default function MaintenanceServisPage() {
                     <input
                       type="checkbox"
                       className="rounded border-slate-300 text-sky-500 focus:ring-sky-500 cursor-pointer"
-                      checked={filteredData.length > 0 && filteredData.every((u: any) => selectedIds.has(u.id))}
+                      checked={filteredData.length > 0 && filteredData.every((u: any) => selectedUnitsMap[u.id])}
                       onChange={() => {
-                        const allIds = filteredData.map((u: any) => u.id);
-                        const allSelected = allIds.every((id: string) => selectedIds.has(id));
-                        setSelectedIds(prev => {
-                          const next = new Set(prev);
-                          if (allSelected) allIds.forEach((id: string) => next.delete(id));
-                          else allIds.forEach((id: string) => next.add(id));
+                        const allSelected = filteredData.every((u: any) => selectedUnitsMap[u.id]);
+                        setSelectedUnitsMap(prev => {
+                          const next = { ...prev };
+                          if (allSelected) {
+                            filteredData.forEach((u: any) => delete next[u.id]);
+                          } else {
+                            filteredData.forEach((u: any) => { next[u.id] = u; });
+                          }
                           return next;
                         });
                       }}
@@ -564,15 +596,24 @@ export default function MaintenanceServisPage() {
                       </th>
                     );
                   })}
-                  {visibleAplColumns.map(col => (
-                    <th
-                      key={col.id}
-                      style={{ width: 120, minWidth: 120, maxWidth: 120 }}
-                      className="px-4 py-4 whitespace-nowrap border-r border-slate-200 dark:border-white/5 text-center transition-all duration-300 overflow-hidden"
-                    >
-                      <div className="truncate w-full" title={col.name}>{col.name}</div>
-                    </th>
-                  ))}
+                  {isPlanPSMode ? (
+                    <>
+                      <th className="px-4 py-4 whitespace-nowrap border-r border-slate-200 dark:border-white/5 text-center font-bold text-slate-700 dark:text-slate-200 bg-sky-50 dark:bg-sky-900/30">Periodical Service</th>
+                      <th className="px-4 py-4 whitespace-nowrap border-r border-slate-200 dark:border-white/5 text-center font-bold text-slate-700 dark:text-slate-200 bg-sky-50 dark:bg-sky-900/30">Asumsi/hari</th>
+                      <th className="px-4 py-4 whitespace-nowrap border-r border-slate-200 dark:border-white/5 text-center font-bold text-slate-700 dark:text-slate-200 bg-sky-50 dark:bg-sky-900/30">Estimasi</th>
+                      <th className="px-4 py-4 whitespace-nowrap border-r border-slate-200 dark:border-white/5 text-center font-bold text-slate-700 dark:text-slate-200 bg-sky-50 dark:bg-sky-900/30">Status</th>
+                    </>
+                  ) : (
+                    visibleAplColumns.map(col => (
+                      <th
+                        key={col.id}
+                        style={{ width: 120, minWidth: 120, maxWidth: 120 }}
+                        className="px-4 py-4 whitespace-nowrap border-r border-slate-200 dark:border-white/5 text-center transition-all duration-300 overflow-hidden"
+                      >
+                        <div className="truncate w-full" title={col.name}>{col.name}</div>
+                      </th>
+                    ))
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-white/5">
@@ -584,7 +625,7 @@ export default function MaintenanceServisPage() {
                     </div>
                   </td></tr>
                 ) : filteredData.length === 0 ? (
-                  <tr><td colSpan={6 + visibleAplColumns.length} className="p-8 text-center text-slate-500">Tidak ada data unit yang sesuai.</td></tr>
+                  <tr><td colSpan={visibleFixedCols.length + 1 + (isPlanPSMode ? 4 : visibleAplColumns.length)} className="p-8 text-center text-slate-500">Tidak ada data unit yang sesuai.</td></tr>
                 ) : (
                   filteredData.map((u, index) => {
                     const isZeroHours = !u.hours || u.hours === 0;
@@ -595,7 +636,7 @@ export default function MaintenanceServisPage() {
                       ? 'bg-rose-50 dark:bg-rose-950 group-hover:bg-rose-100 dark:group-hover:bg-rose-900'
                       : 'bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800';
 
-                    const isSelected = selectedIds.has(u.id);
+                    const isSelected = !!selectedUnitsMap[u.id];
                     const checkboxBg = isSelected
                       ? isZeroHours ? 'bg-rose-100 dark:bg-rose-900' : 'bg-sky-50 dark:bg-sky-950'
                       : isZeroHours ? 'bg-rose-50 dark:bg-rose-950 group-hover:bg-rose-100 dark:group-hover:bg-rose-900' : 'bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800';
@@ -616,10 +657,10 @@ export default function MaintenanceServisPage() {
                             type="checkbox"
                             className="rounded border-slate-300 text-sky-500 focus:ring-sky-500 cursor-pointer"
                             checked={isSelected}
-                            onChange={() => setSelectedIds(prev => {
-                              const next = new Set(prev);
-                              if (next.has(u.id)) next.delete(u.id);
-                              else next.add(u.id);
+                            onChange={() => setSelectedUnitsMap(prev => {
+                              const next = { ...prev };
+                              if (next[u.id]) delete next[u.id];
+                              else next[u.id] = u;
                               return next;
                             })}
                           />
@@ -650,7 +691,61 @@ export default function MaintenanceServisPage() {
                             </td>
                           );
                         })}
-                        {visibleAplColumns.map(col => {
+                        {isPlanPSMode ? (() => {
+                          const urgentApls = u.aplData ? u.aplData.filter((a: any) => a.input < 50) : [];
+                          
+                          const defaultUrgentApl = urgentApls.length > 0 ? urgentApls.reduce((prev: any, curr: any) => (prev.input < curr.input) ? prev : curr, urgentApls[0]) : null;
+                          const selectedAplId = psSelectedApls[u.id] || defaultUrgentApl?.category_apl_id;
+                          const urgentApl = urgentApls.find((a: any) => a.category_apl_id === selectedAplId) || defaultUrgentApl;
+
+                          const vaultVal = urgentApl && urgentApl.vault ? `PS ${urgentApl.vault} H` : '-';
+                          const asumsi = urgentApl ? Math.round(urgentApl.input / 8) : 0;
+                          
+                          const d = new Date();
+                          d.setDate(d.getDate() + asumsi);
+                          const estimasiStr = urgentApl ? d.toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' }) : '-';
+                          
+                          const status = psStatuses[u.id] || 'Wait';
+
+                          return (
+                            <>
+                              <td className="px-4 py-4 whitespace-nowrap text-center border-r border-slate-200 dark:border-white/5 font-semibold text-slate-700 dark:text-slate-200" onClick={(e) => e.stopPropagation()}>
+                                {urgentApls.length > 1 ? (
+                                  <select
+                                    value={selectedAplId || ''}
+                                    onChange={(e) => setPsSelectedApls(prev => ({ ...prev, [u.id]: e.target.value }))}
+                                    className="bg-transparent outline-none cursor-pointer text-center font-semibold text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 w-full"
+                                  >
+                                    {urgentApls.map((a: any) => (
+                                      <option key={a.category_apl_id} value={a.category_apl_id} className="text-slate-900">
+                                        PS {a.vault} H
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  vaultVal
+                                )}
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-center border-r border-slate-200 dark:border-white/5">{asumsi}</td>
+                              <td className="px-4 py-4 whitespace-nowrap text-center border-r border-slate-200 dark:border-white/5 text-sm">{estimasiStr}</td>
+                              <td className="px-4 py-4 whitespace-nowrap text-center border-r border-slate-200 dark:border-white/5" onClick={(e) => e.stopPropagation()}>
+                                <select 
+                                  value={status} 
+                                  onChange={(e) => setPsStatuses(prev => ({ ...prev, [u.id]: e.target.value as any }))}
+                                  className={`rounded-lg px-2 py-1 text-xs font-bold outline-none cursor-pointer border uppercase ${
+                                    status === 'Wait' ? 'bg-red-100 text-red-600 border-red-300' :
+                                    status === 'Progress' ? 'bg-emerald-100 text-emerald-600 border-emerald-300' :
+                                    'bg-sky-100 text-sky-600 border-sky-300'
+                                  }`}
+                                >
+                                  <option value="Wait" className="uppercase font-bold text-red-600">WAIT</option>
+                                  <option value="Progress" className="uppercase font-bold text-emerald-600">PROGRESS</option>
+                                  <option value="Done" className="uppercase font-bold text-sky-600">DONE</option>
+                                </select>
+                              </td>
+                            </>
+                          );
+                        })() : visibleAplColumns.map(col => {
                           const aplRecord = u.aplData?.find((a: any) => a.category_apl_id === col.id);
                           const val = aplRecord ? (aplRecord.input || 0) : 0;
 
@@ -721,9 +816,12 @@ export default function MaintenanceServisPage() {
       {/* Print Preview Modal */}
       {showPrintModal && mounted && createPortal(
         <PrintPreviewModal
-          units={filteredData.filter((u: any) => selectedIds.has(u.id))}
+          units={isPlanPSMode ? Object.values(selectedUnitsMap) : detailsData.filter((u: any) => selectedUnitsMap[u.id])}
           aplColumns={visibleAplColumns}
           categoryName={categories.find(c => c.id === activeCategoryId)?.name || 'semua-unit'}
+          isPlanPSMode={isPlanPSMode}
+          psStatuses={psStatuses}
+          psSelectedApls={psSelectedApls}
           onClose={() => setShowPrintModal(false)}
         />,
         document.body

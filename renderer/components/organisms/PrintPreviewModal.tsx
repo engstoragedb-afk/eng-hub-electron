@@ -6,6 +6,9 @@ interface PrintPreviewModalProps {
   units: any[];
   aplColumns: { id: string; name: string }[];
   categoryName: string;
+  isPlanPSMode?: boolean;
+  psStatuses?: Record<string, 'Wait' | 'Progress' | 'Done'>;
+  psSelectedApls?: Record<string, string>;
   onClose: () => void;
 }
 
@@ -41,12 +44,12 @@ const MAIN_COLUMNS = [
   { id: "hours", name: "Total Jam" },
 ];
 
-export default function PrintPreviewModal({ units, aplColumns, categoryName, onClose }: PrintPreviewModalProps) {
+export default function PrintPreviewModal({ units, aplColumns, categoryName, isPlanPSMode, psStatuses = {}, psSelectedApls = {}, onClose }: PrintPreviewModalProps) {
   const [paperSize, setPaperSize] = useState("A4");
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("landscape");
   const [showHeader, setShowHeader] = useState(true);
   const [showStatus, setShowStatus] = useState(true);
-  const [title, setTitle] = useState("LAPORAN PLAN PS");
+  const [title, setTitle] = useState(isPlanPSMode ? "LAPORAN PLAN PS" : "STATUS SERVICE");
   const [subtitle, setSubtitle] = useState("");
   const [zoom, setZoom] = useState(1);
   const [hiddenMainCols, setHiddenMainCols] = useState<Record<string, boolean>>({});
@@ -69,9 +72,11 @@ export default function PrintPreviewModal({ units, aplColumns, categoryName, onC
     const thead = `
       <tr>
         ${visibleMainCols.map(c => `<th>${c.name}</th>`).join("")}
-        ${aplColumns.map(c => `<th style="word-break:break-word;white-space:normal;min-width:60px;text-transform:capitalize">${c.name.toLowerCase()}</th>`).join("")}
+        ${isPlanPSMode 
+          ? `<th>Periodical Service</th><th>Asumsi/hari</th><th>Estimasi</th><th>Status</th>`
+          : aplColumns.map(c => `<th style="word-break:break-word;white-space:normal;min-width:60px;text-transform:capitalize">${c.name.toLowerCase()}</th>`).join("")
+        }
       </tr>`;
-
     const tbody = units.map((u, i) => {
       const zero = isZeroFn(u);
       const rowStyle = zero ? 'style="background:#fff1f2"' : (i % 2 === 0 ? 'style="background:#f8fafc"' : '');
@@ -89,7 +94,32 @@ export default function PrintPreviewModal({ units, aplColumns, categoryName, onC
         return "<td>-</td>";
       }).join("");
 
-      const aplCells = aplColumns.map(col => {
+      const aplCells = isPlanPSMode ? (() => {
+        const urgentApls = u.aplData ? u.aplData.filter((a: any) => a.input < 50) : [];
+        const defaultUrgentApl = urgentApls.length > 0 ? urgentApls.reduce((prev: any, curr: any) => (prev.input < curr.input) ? prev : curr, urgentApls[0]) : null;
+        const selectedAplId = psSelectedApls[u.id] || defaultUrgentApl?.category_apl_id;
+        const urgentApl = urgentApls.find((a: any) => a.category_apl_id === selectedAplId) || defaultUrgentApl;
+
+        const vaultVal = urgentApl && urgentApl.vault ? `PS ${urgentApl.vault} H` : '-';
+        const asumsi = urgentApl ? Math.round(urgentApl.input / 8) : 0;
+        
+        const d = new Date();
+        d.setDate(d.getDate() + asumsi);
+        const estimasiStr = urgentApl ? d.toLocaleDateString("id-ID", { day: '2-digit', month: 'long', year: 'numeric' }) : '-';
+        
+        const status = psStatuses[u.id] || 'Wait';
+        let statusColor = '#dc2626'; // red-600
+        let statusBg = '#fee2e2'; // red-100
+        if (status === 'Progress') { statusColor = '#059669'; statusBg = '#d1fae5'; } // emerald-600, emerald-100
+        if (status === 'Done') { statusColor = '#0284c7'; statusBg = '#e0f2fe'; } // sky-600, sky-100
+
+        return `
+          <td style="text-align:center;font-weight:bold">${vaultVal}</td>
+          <td style="text-align:center">${asumsi}</td>
+          <td style="text-align:center">${estimasiStr}</td>
+          <td style="text-align:center"><span style="background:${statusBg};color:${statusColor};padding:2px 6px;border-radius:4px;font-weight:bold;font-size:8pt;text-transform:uppercase">${status}</span></td>
+        `;
+      })() : aplColumns.map(col => {
         const rec = u.aplData?.find((a: any) => a.category_apl_id === col.id);
         const val = rec ? (rec.input ?? 0) : 0;
         const sc = STATUS_COLOR[getStatus(val)];
@@ -364,40 +394,87 @@ ${showHeader ? `<div class="legend">🟥 Kritis (≤-50) &nbsp; 🟧 Waspada (�
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 8 }}>
                   <thead>
-                    <tr>
+                    <tr style={{ background: "#1e40af", color: "white" }}>
                       {visibleMainCols.map(c => (
-                        <th key={c.id} style={{ background: "#1e40af", color: "white", padding: "5px 7px", textAlign: "left", fontSize: 8, fontWeight: "bold", whiteSpace: "nowrap" }}>
-                          {c.name}
-                        </th>
+                        <th key={c.id} style={{ padding: "5px 7px", textAlign: "left", fontSize: 8 }}>{c.name}</th>
                       ))}
-                      {aplColumns.map(c => (
-                        <th key={c.id} style={{ background: "#1e40af", color: "white", padding: "5px 7px", textAlign: "center", fontSize: 8, fontWeight: "bold", minWidth: 55, wordBreak: "break-word", whiteSpace: "normal", textTransform: "capitalize" }}>
-                          {c.name.toLowerCase()}
-                        </th>
-                      ))}
+                      {isPlanPSMode ? (
+                        <>
+                          <th style={{ padding: "5px 7px", textAlign: "center", fontSize: 8 }}>Periodical Service</th>
+                          <th style={{ padding: "5px 7px", textAlign: "center", fontSize: 8 }}>Asumsi/hari</th>
+                          <th style={{ padding: "5px 7px", textAlign: "center", fontSize: 8 }}>Estimasi</th>
+                          <th style={{ padding: "5px 7px", textAlign: "center", fontSize: 8 }}>Status</th>
+                        </>
+                      ) : (
+                        aplColumns.map(c => (
+                          <th key={c.id} style={{ padding: "5px 7px", textAlign: "center", fontSize: 8, wordBreak: "break-word", whiteSpace: "normal", minWidth: 60, textTransform: "capitalize" }}>
+                            {c.name.toLowerCase()}
+                          </th>
+                        ))
+                      )}
                     </tr>
                   </thead>
                   <tbody>
                     {units.map((u, i) => {
-                      const isZero = !u.hours || u.hours === 0;
-                      const rowBg = isZero ? "#fff1f2" : i % 2 === 0 ? "#f8fafc" : "white";
+                      const zero = !u.hours || u.hours === 0;
+                      const trBg = zero ? "#fff1f2" : (i % 2 === 0 ? "#f8fafc" : "");
+                      
                       return (
-                        <tr key={u.id || i} style={{ background: rowBg }}>
+                        <tr key={i} style={{ backgroundColor: trBg }}>
                           {visibleMainCols.map(c => {
-                            if (c.id === "no") return <td key={c.id} style={{ padding: "3px 7px", borderBottom: "1px solid #e2e8f0", textAlign: "center", color: "#64748b" }}>{i + 1}</td>;
-                            if (c.id === "code") return <td key={c.id} style={{ padding: "3px 7px", borderBottom: "1px solid #e2e8f0", fontWeight: "bold" }}>{u.code || "-"}</td>;
-                            if (c.id === "operator") return <td key={c.id} style={{ padding: "3px 7px", borderBottom: "1px solid #e2e8f0" }}>{u.operator?.full_name || u.operator?.name || "-"}</td>;
-                            if (c.id === "lokasi") return <td key={c.id} style={{ padding: "3px 7px", borderBottom: "1px solid #e2e8f0", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis" }}>{u.location?.name || (typeof u.location === "string" ? u.location : "-")}</td>;
-                            if (c.id === "hm") return <td key={c.id} style={{ padding: "3px 7px", borderBottom: "1px solid #e2e8f0", textAlign: "right" }}>{u.hm || 0}</td>;
-                            if (c.id === "hours") return <td key={c.id} style={{ padding: "3px 7px", borderBottom: "1px solid #e2e8f0", textAlign: "right", fontWeight: "bold", color: isZero ? "#b91c1c" : undefined }}>{u.hours || 0}</td>;
-                            return <td key={c.id}>-</td>;
+                            let val: any = "-";
+                            let colStyle: any = { padding: "4px 7px", borderBottom: "1px solid #e2e8f0", fontSize: 8.5, verticalAlign: "middle" };
+                            
+                            if (c.id === "no") { val = i + 1; colStyle.textAlign = "center"; }
+                            else if (c.id === "code") { val = u.code || "-"; colStyle.fontWeight = "bold"; }
+                            else if (c.id === "operator") { val = u.operator?.full_name || u.operator?.name || "-"; }
+                            else if (c.id === "lokasi") { val = u.location?.name || (typeof u.location === "string" ? u.location : "-"); }
+                            else if (c.id === "hm") { val = u.hm || 0; colStyle.textAlign = "right"; }
+                            else if (c.id === "hours") {
+                              val = u.hours || 0;
+                              colStyle.textAlign = "right";
+                              colStyle.fontWeight = "bold";
+                              if (zero) colStyle.color = "#b91c1c";
+                            }
+
+                            return <td key={c.id} style={colStyle}>{val}</td>;
                           })}
-                          {aplColumns.map(col => {
+
+                          {isPlanPSMode ? (() => {
+                            const urgentApls = u.aplData ? u.aplData.filter((a: any) => a.input < 50) : [];
+                            
+                            const defaultUrgentApl = urgentApls.length > 0 ? urgentApls.reduce((prev: any, curr: any) => (prev.input < curr.input) ? prev : curr, urgentApls[0]) : null;
+                            const selectedAplId = psSelectedApls[u.id] || defaultUrgentApl?.category_apl_id;
+                            const urgentApl = urgentApls.find((a: any) => a.category_apl_id === selectedAplId) || defaultUrgentApl;
+
+                            const vaultVal = urgentApl && urgentApl.vault ? `PS ${urgentApl.vault} H` : '-';
+                            const asumsi = urgentApl ? Math.round(urgentApl.input / 8) : 0;
+                            
+                            const d = new Date();
+                            d.setDate(d.getDate() + asumsi);
+                            const estimasiStr = urgentApl ? d.toLocaleDateString("id-ID", { day: '2-digit', month: 'long', year: 'numeric' }) : '-';
+                            
+                            const status = psStatuses[u.id] || 'Wait';
+                            let statusColor = '#dc2626';
+                            let statusBg = '#fee2e2';
+                            if (status === 'Progress') { statusColor = '#059669'; statusBg = '#d1fae5'; }
+                            if (status === 'Done') { statusColor = '#0284c7'; statusBg = '#e0f2fe'; }
+
+                            return (
+                              <>
+                                <td style={{ padding: "4px 7px", borderBottom: "1px solid #e2e8f0", fontSize: 8.5, verticalAlign: "middle", textAlign: "center", fontWeight: "bold" }}>{vaultVal}</td>
+                                <td style={{ padding: "4px 7px", borderBottom: "1px solid #e2e8f0", fontSize: 8.5, verticalAlign: "middle", textAlign: "center" }}>{asumsi}</td>
+                                <td style={{ padding: "4px 7px", borderBottom: "1px solid #e2e8f0", fontSize: 8.5, verticalAlign: "middle", textAlign: "center" }}>{estimasiStr}</td>
+                                <td style={{ padding: "4px 7px", borderBottom: "1px solid #e2e8f0", fontSize: 8.5, verticalAlign: "middle", textAlign: "center" }}>
+                                  <span style={{ background: statusBg, color: statusColor, padding: "2px 6px", borderRadius: "4px", fontWeight: "bold", fontSize: 8, textTransform: "uppercase" }}>{status}</span>
+                                </td>
+                              </>
+                            );
+                          })() : aplColumns.map(col => {
                             const rec = u.aplData?.find((a: any) => a.category_apl_id === col.id);
                             const val = rec ? (rec.input ?? 0) : 0;
                             const sc = STATUS_COLOR[getStatus(val)];
                             if (aplDisplayMode === 'diagram') {
-                              // Bar diagram in preview
                               const fillCount = Math.min(10, Math.max(1, Math.round((Math.abs(val) / 250) * 10)));
                               const barBg = val <= -50 ? '#f43f5e' : val <= 0 ? '#f97316' : val < 50 ? '#f59e0b' : val < 150 ? '#4ade80' : '#34d399';
                               return (

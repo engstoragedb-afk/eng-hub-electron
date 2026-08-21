@@ -6,6 +6,9 @@ export interface ExportExcelOptions {
   visibleAplColumns: { id: string; name: string }[];
   categories: { id: string; name: string; count?: number }[];
   activeCategoryId: string;
+  isPlanPSMode?: boolean;
+  psStatuses?: Record<string, 'Wait' | 'Progress' | 'Done'>;
+  psSelectedApls?: Record<string, string>;
 }
 
 export const exportServisToExcel = async ({
@@ -13,13 +16,19 @@ export const exportServisToExcel = async ({
   visibleFixedCols,
   visibleAplColumns,
   categories,
-  activeCategoryId
+  activeCategoryId,
+  isPlanPSMode,
+  psStatuses = {},
+  psSelectedApls = {}
 }: ExportExcelOptions) => {
   if (filteredData.length === 0) return;
 
   const headers = [
     ...visibleFixedCols.map(col => col.name),
-    ...visibleAplColumns.map(col => col.name),
+    ...(isPlanPSMode 
+      ? ['Periodical Service', 'Asumsi/hari', 'Estimasi', 'Status'] 
+      : visibleAplColumns.map(col => col.name)
+    ),
   ];
 
   const rows = filteredData.map((u, index) => {
@@ -41,10 +50,31 @@ export const exportServisToExcel = async ({
       }
     });
 
-    visibleAplColumns.forEach(col => {
-      const aplRecord = u.aplData?.find((a: any) => a.category_apl_id === col.id);
-      row[col.name] = aplRecord ? (aplRecord.input ?? 0) : 0;
-    });
+    if (isPlanPSMode) {
+      const urgentApls = u.aplData ? u.aplData.filter((a: any) => a.input < 50) : [];
+      const defaultUrgentApl = urgentApls.length > 0 ? urgentApls.reduce((prev: any, curr: any) => (prev.input < curr.input) ? prev : curr, urgentApls[0]) : null;
+      const selectedAplId = psSelectedApls[u.id] || defaultUrgentApl?.category_apl_id;
+      const urgentApl = urgentApls.find((a: any) => a.category_apl_id === selectedAplId) || defaultUrgentApl;
+
+      const vaultVal = urgentApl && urgentApl.vault ? `PS ${urgentApl.vault} H` : '-';
+      const asumsi = urgentApl ? Math.round(urgentApl.input / 8) : 0;
+      
+      const d = new Date();
+      d.setDate(d.getDate() + asumsi);
+      const estimasiStr = urgentApl ? d.toLocaleDateString("id-ID", { day: '2-digit', month: 'long', year: 'numeric' }) : '-';
+      
+      const status = psStatuses[u.id] || 'Wait';
+
+      row['Periodical Service'] = vaultVal;
+      row['Asumsi/hari'] = asumsi;
+      row['Estimasi'] = estimasiStr;
+      row['Status'] = status;
+    } else {
+      visibleAplColumns.forEach(col => {
+        const aplRecord = u.aplData?.find((a: any) => a.category_apl_id === col.id);
+        row[col.name] = aplRecord ? (aplRecord.input ?? 0) : 0;
+      });
+    }
 
     return row;
   });
