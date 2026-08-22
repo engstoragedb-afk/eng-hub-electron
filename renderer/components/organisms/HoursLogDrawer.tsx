@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { FaTimes, FaCalendarAlt, FaChevronLeft, FaChevronRight, FaUndo } from "react-icons/fa";
 import { ACTIONS } from "@/common/utils/action";
 import { auditLogService } from "@/services";
