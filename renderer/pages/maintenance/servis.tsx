@@ -42,11 +42,11 @@ export default function MaintenanceServisPage() {
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ notUpdated: any[] } | null>(null);
   const [mounted, setMounted] = useState(false);
-  const [selectedUnitsMap, setSelectedUnitsMap] = useState<Record<string, any>>({});
+  const [selectedUnitsMap, setSelectedUnitsMap] = useLocalStorage<Record<string, any>>("servis_selected_units_map", {});
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [isPlanPSMode, setIsPlanPSMode] = useLocalStorage("servis_plan_ps_mode", false);
-  const [psStatuses, setPsStatuses] = useState<Record<string, 'Wait' | 'Progress' | 'Done'>>({});
-  const [psSelectedApls, setPsSelectedApls] = useState<Record<string, string>>({});
+  const [psStatuses, setPsStatuses] = useLocalStorage<Record<string, 'Wait' | 'Progress' | 'Done'>>("servis_ps_statuses", {});
+  const [psSelectedApls, setPsSelectedApls] = useLocalStorage<Record<string, string>>("servis_ps_selected_apls", {});
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -333,7 +333,15 @@ export default function MaintenanceServisPage() {
               <label className="flex items-center gap-2 cursor-pointer ml-2">
                 <div 
                   className={`w-11 h-6 rounded-full flex items-center px-1 transition-colors ${isPlanPSMode ? "bg-sky-500" : "bg-slate-300 dark:bg-slate-600"}`}
-                  onClick={() => setIsPlanPSMode(!isPlanPSMode)}
+                  onClick={() => {
+                    const nextMode = !isPlanPSMode;
+                    setIsPlanPSMode(nextMode);
+                    if (!nextMode) {
+                      setSelectedUnitsMap({});
+                      setPsStatuses({});
+                      setPsSelectedApls({});
+                    }
+                  }}
                 >
                   <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${isPlanPSMode ? "translate-x-5" : "translate-x-0"}`} />
                 </div>

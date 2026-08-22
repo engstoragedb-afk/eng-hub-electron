@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
-import { FaArrowLeft, FaExpandAlt, FaTimes, FaSearchPlus, FaCrop, FaImage, FaCheckCircle, FaWrench, FaMapMarkerAlt, FaWifi, FaExclamationTriangle, FaEyeSlash, FaHistory } from "react-icons/fa";
+import { FaArrowLeft, FaExpandAlt, FaTimes, FaSearchPlus, FaCrop, FaImage, FaCheckCircle, FaWrench, FaMapMarkerAlt, FaWifi, FaExclamationTriangle, FaEyeSlash } from "react-icons/fa";
 import toast from "react-hot-toast";
 import { EGPSStatus } from "@/common/utils/status";
 
@@ -14,7 +14,6 @@ import dynamic from 'next/dynamic';
 import { unitService, typeUnitService, locationService } from "@/services";
 import { repairs } from "@/common/data/repairData";
 import GpsLogDrawer from "@/components/organisms/GpsLogDrawer";
-import HistoryReplacementDrawer from "@/components/organisms/HistoryReplacementDrawer";
 import AplEditFormModal from "@/components/organisms/AplEditFormModal";
 
 const DetailUnitChart = dynamic(() => import("@/components/organisms/DetailUnitChart"), { 
@@ -52,12 +51,8 @@ export default function UnitDetailPage() {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
 
-  // History Drawer States
-  const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
-  const [historyAplItem, setHistoryAplItem] = useState<any>(null);
-
   useEffect(() => {
-    const isAnyModalOpen = !!(isHistoryDrawerOpen || isChartModalOpen || editingAplItem || isCropModalOpen || isLightboxOpen);
+    const isAnyModalOpen = !!(isChartModalOpen || editingAplItem || isCropModalOpen || isLightboxOpen);
     if (isAnyModalOpen) {
       const scrollY = window.scrollY;
       document.body.style.position = 'fixed';
@@ -83,16 +78,11 @@ export default function UnitDetailPage() {
       document.body.style.right = '';
       document.body.style.overflowY = '';
     };
-  }, [isHistoryDrawerOpen, isChartModalOpen, editingAplItem, isCropModalOpen, isLightboxOpen]);
-
-  const openHistoryDrawer = (item: any) => {
-    setHistoryAplItem(item);
-    setIsHistoryDrawerOpen(true);
-  };
+  }, [isChartModalOpen, editingAplItem, isCropModalOpen, isLightboxOpen]);
 
   const [isGpsLogOpen, setIsGpsLogOpen] = useState(false);
   
-  const [activeMainTab, setActiveMainTab] = useState<'JADWAL' | 'HISTORY'>('JADWAL');
+  const [activeMainTab, setActiveMainTab] = useState<'JADWAL' | 'HISTORY' | 'KOEFISIEN_SOLAR'>('JADWAL');
   const [repairLogs, setRepairLogs] = useState<any[]>([]);
 
   useEffect(() => {
@@ -396,7 +386,7 @@ export default function UnitDetailPage() {
           const val = item.input || 0;
           if (val <= -100) return '#e90c0cff'; 
           if (val < 0) return '#e7791aff'; 
-          if (val < 100) return '#fbbf24'; 
+          if (val < 50) return '#fbbf24'; 
           return '#34d399'; 
         }),
         borderRadius: 8,
@@ -619,6 +609,12 @@ export default function UnitDetailPage() {
                     <FaWrench size={16} /> MAINTENANCE
                   </button>
                   {/* <button
+                    onClick={() => setActiveMainTab('KOEFISIEN_SOLAR')}
+                    className={`pb-3 text-sm font-bold transition-all border-b-2 flex items-center gap-2 ${activeMainTab === 'KOEFISIEN_SOLAR' ? 'border-sky-500 text-sky-600 dark:text-sky-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                  >
+                    <FaGasPump size={16} /> KOEFISIEN SOLAR
+                  </button> */}
+                  {/* <button
                     onClick={() => setActiveMainTab('HISTORY')}
                     className={`pb-3 text-sm font-bold transition-all border-b-2 flex items-center gap-2 ${activeMainTab === 'HISTORY' ? 'border-sky-500 text-sky-600 dark:text-sky-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
                   >
@@ -637,25 +633,58 @@ export default function UnitDetailPage() {
               </div>
               <div className="mt-4">
                 {activeMainTab === 'JADWAL' ? (
-                  <div className="w-full relative group" style={{ height: `${sortedAplData.length * 45 + 60}px` }}>
-                    <div className="absolute right-0 top-0 bottom-0 w-10 z-10 flex flex-col justify-around py-[30px] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      {sortedAplData.map((item: any, i: number) => (
-                        <div key={i} className="flex-1 flex justify-center items-center">
-                           <button 
-                             onClick={(e) => { e.stopPropagation(); openHistoryDrawer(item); }}
-                             className="p-2 rounded-full bg-white dark:bg-slate-800 text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-900/50 hover:scale-110 transition-all shadow-sm border border-slate-200 dark:border-white/10 pointer-events-auto"
-                             title="Riwayat Penggantian"
-                           >
-                             <FaHistory size={12} />
-                           </button>
-                        </div>
-                      ))}
-                    </div>
+                  <div className="w-full relative" style={{ height: `${sortedAplData.length * 45 + 60}px` }}>
                     <DetailUnitChart chartData={chartData} chartOptions={chartOptions} />
                   </div>
                 ) : (
                   <div className="flex-1 space-y-4">
-                    {repairLogs.length === 0 ? (
+                    {activeMainTab === 'KOEFISIEN_SOLAR' ? (
+                      <div className="space-y-4 animate-fade-in">
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                           <div className="bg-sky-50 dark:bg-sky-900/20 p-5 rounded-2xl border border-sky-100 dark:border-sky-900/30">
+                             <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-1 uppercase tracking-wider">Rata-rata Konsumsi</p>
+                             <p className="text-3xl font-extrabold text-sky-600 dark:text-sky-400">12.5 <span className="text-sm font-medium text-slate-500">L/Jam</span></p>
+                           </div>
+                           <div className="bg-emerald-50 dark:bg-emerald-900/20 p-5 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
+                             <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-1 uppercase tracking-wider">Total Pengisian (Bulan Ini)</p>
+                             <p className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">1,250 <span className="text-sm font-medium text-slate-500">Liter</span></p>
+                           </div>
+                        </div>
+                        
+                        <div className="bg-white dark:bg-slate-900/40 rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden">
+                           <table className="w-full text-left text-sm">
+                             <thead className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400">
+                               <tr>
+                                 <th className="py-4 px-5 font-semibold text-xs uppercase tracking-wider">Tanggal</th>
+                                 <th className="py-4 px-5 font-semibold text-xs uppercase tracking-wider">HM Akhir</th>
+                                 <th className="py-4 px-5 font-semibold text-xs uppercase tracking-wider">Volume (L)</th>
+                                 <th className="py-4 px-5 font-semibold text-xs uppercase tracking-wider">Koefisien</th>
+                               </tr>
+                             </thead>
+                             <tbody className="divide-y divide-slate-100 dark:divide-white/5 text-slate-700 dark:text-slate-300">
+                               <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                                 <td className="py-4 px-5">20 Agustus 2026</td>
+                                 <td className="py-4 px-5 font-medium">10,050</td>
+                                 <td className="py-4 px-5 font-bold text-emerald-600 dark:text-emerald-400">+200</td>
+                                 <td className="py-4 px-5 font-bold">12.4</td>
+                               </tr>
+                               <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                                 <td className="py-4 px-5">18 Agustus 2026</td>
+                                 <td className="py-4 px-5 font-medium">10,034</td>
+                                 <td className="py-4 px-5 font-bold text-emerald-600 dark:text-emerald-400">+200</td>
+                                 <td className="py-4 px-5 font-bold text-amber-500">13.2</td>
+                               </tr>
+                               <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                                 <td className="py-4 px-5">15 Agustus 2026</td>
+                                 <td className="py-4 px-5 font-medium">10,019</td>
+                                 <td className="py-4 px-5 font-bold text-emerald-600 dark:text-emerald-400">+150</td>
+                                 <td className="py-4 px-5 font-bold text-rose-500">14.1</td>
+                               </tr>
+                             </tbody>
+                           </table>
+                        </div>
+                      </div>
+                    ) : repairLogs.length === 0 ? (
                       <div className="text-center text-slate-400 py-12 bg-white dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
                         Belum ada riwayat perbaikan.
                       </div>
@@ -859,8 +888,12 @@ export default function UnitDetailPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Status Service</span>
-                  <span className="font-semibold text-slate-900 dark:text-slate-100">
-                    {unit.service}
+                  <span className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${
+                    unit.service === "NORMAL" || unit.service === "Normal"
+                    ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 ring-emerald-600/20 dark:ring-emerald-500/30"
+                    : "bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-400 ring-sky-600/20 dark:ring-sky-500/30"
+                  }`}>
+                    {unit.service === "NORMAL" || unit.service === "Normal" ? "NORMAL" : `PS ${unit.service} H`}
                   </span>
                 </div>
               </div>
@@ -1034,14 +1067,6 @@ export default function UnitDetailPage() {
         isOpen={isGpsLogOpen} 
         onClose={() => setIsGpsLogOpen(false)} 
         unitId={apiUnit?.id} 
-      />
-
-
-      <HistoryReplacementDrawer
-        isOpen={isHistoryDrawerOpen}
-        onClose={() => setIsHistoryDrawerOpen(false)}
-        historyAplItem={historyAplItem}
-        setPreviewImageUrl={setPreviewImageUrl}
       />
 
     </React.Fragment>

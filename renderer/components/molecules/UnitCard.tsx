@@ -1,6 +1,6 @@
 import Badge from "@/components/atoms/Badge";
 
-import { FaCheckCircle, FaWrench, FaMapMarkerAlt, FaWifi, FaExclamationTriangle, FaEyeSlash } from "react-icons/fa";
+import { FaCheckCircle, FaWrench, FaMapMarkerAlt, FaWifi, FaExclamationTriangle, FaEyeSlash, FaTools } from "react-icons/fa";
 import { EGPSStatus } from "@/common/utils/status";
 
 type UnitCardProps = {
@@ -12,6 +12,8 @@ type UnitCardProps = {
   imageUrl?: string;
   gpsVendor?: string | null;
   gpsStatus?: string | null;
+  service?: string | null;
+  onWarningClick?: (e: React.MouseEvent) => void;
   onClick?: () => void;
   viewMode?: "grid" | "list";
 };
@@ -25,6 +27,8 @@ export default function UnitCard({
   imageUrl,
   gpsVendor,
   gpsStatus,
+  service,
+  onWarningClick,
   onClick,
   viewMode = "grid",
 }: UnitCardProps) {
@@ -88,13 +92,25 @@ export default function UnitCard({
               </div>
               {viewMode === 'grid' && (
                 <div className="flex flex-col items-end gap-1.5 shrink-0">
-                  <Badge 
-                    tone={status === "Siap" ? "success" : "warning"}
-                    title={status}
-                    className="!px-2 h-6 w-6 justify-center"
-                  >
-                    {status === "Siap" ? <FaCheckCircle /> : <FaWrench />}
-                  </Badge>
+                  {service && service !== "NORMAL" ? (
+                    <div onClick={(e) => { e.stopPropagation(); onWarningClick?.(e); }}>
+                      <Badge 
+                        tone="warning"
+                        title={`Butuh tindakan perbaikan servis: PS ${service} H`}
+                        className="!px-2 h-6 w-6 justify-center cursor-pointer"
+                      >
+                        <FaTools />
+                      </Badge>
+                    </div>
+                  ) : (
+                    <Badge 
+                      tone={status === "Siap" ? "success" : "warning"}
+                      title={status}
+                      className="!px-2 h-6 w-6 justify-center"
+                    >
+                      {status === "Siap" ? <FaCheckCircle /> : <FaWrench />}
+                    </Badge>
+                  )}
                   {gpsVendor && (
                     <Badge 
                       tone={getGpsStatusColor(gpsStatus)}
@@ -132,17 +148,29 @@ export default function UnitCard({
               <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{hours}</span>
             </div>
             <div className="flex flex-1 items-center justify-end gap-3 shrink-0">
-              <Badge 
-                tone={status === "Siap" ? "success" : "warning"}
-                title={status}
-                className="!px-3 py-1 text-xs font-semibold"
-              >
-                {status === "Siap" ? (
-                  <span className="flex items-center gap-1.5"><FaCheckCircle /> Siap</span>
-                ) : (
-                  <span className="flex items-center gap-1.5"><FaWrench /> Perbaikan</span>
-                )}
-              </Badge>
+              {service && service !== "NORMAL" ? (
+                <div onClick={(e) => { e.stopPropagation(); onWarningClick?.(e); }}>
+                  <Badge 
+                    tone="warning"
+                    title={`Butuh tindakan perbaikan servis: PS ${service} H`}
+                    className="!px-3 py-1 text-xs font-semibold cursor-pointer"
+                  >
+                    <span className="flex items-center gap-1.5"><FaTools /> PS {service} H</span>
+                  </Badge>
+                </div>
+              ) : (
+                <Badge 
+                  tone={status === "Siap" ? "success" : "warning"}
+                  title={status}
+                  className="!px-3 py-1 text-xs font-semibold"
+                >
+                  {status === "Siap" ? (
+                    <span className="flex items-center gap-1.5"><FaCheckCircle /> Siap</span>
+                  ) : (
+                    <span className="flex items-center gap-1.5"><FaWrench /> Perbaikan</span>
+                  )}
+                </Badge>
+              )}
               {gpsVendor && (
                 <Badge 
                   tone={getGpsStatusColor(gpsStatus)}

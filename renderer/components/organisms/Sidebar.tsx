@@ -8,7 +8,6 @@ import {
   FaUserCog,
   FaChevronLeft,
   FaChevronRight,
-  FaTools,
   // FaList,
 } from "react-icons/fa";
 import { useUIStore } from "@/store/uiStore";
@@ -47,12 +46,12 @@ const navGroups = [
         icon: <FaUserCog />,
         activeBase: "/maintenance/operator",
       },
-      {
-        href: "/maintenance/servis",
-        label: "Servis",
-        icon: <FaTools />,
-        activeBase: "/maintenance/servis",
-      },
+      // {
+      //   href: "/maintenance/servis",
+      //   label: "Servis",
+      //   icon: <FaTools />,
+      //   activeBase: "/maintenance/servis",
+      // },
       // {
       //   href: "/maintenance/perbaikan",
       //   label: "Breakdown",

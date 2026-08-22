@@ -7,7 +7,7 @@ import MaintenanceLayout from "@/components/organisms/MaintenanceLayout";
 import UnitCard from "@/components/molecules/UnitCard";
 import SectionHeading from "@/components/atoms/SectionHeading";
 
-import { unitService, locationService, categoryUnitsService } from "@/services";
+import { unitService, categoryUnitsService } from "@/services";
 import { EGPSStatus } from "@/common/utils/status";
 
 interface UnitType {
@@ -21,6 +21,8 @@ interface UnitType {
   location: string;
   gpsVendor?: string;
   gpsStatus?: string;
+  service?: string;
+  aplData?: any[];
 }
 
 type UnitStatus = "Semua" | "Siap" | "Perbaikan" | "RJ Rawat Jalan";
@@ -46,6 +48,21 @@ export default function MaintenanceUnitList() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isRestored, setIsRestored] = useState(false);
+
+  const [selectedWarningUnit, setSelectedWarningUnit] = useState<UnitType | null>(null);
+
+  useEffect(() => {
+    if (selectedWarningUnit) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [selectedWarningUnit]);
+
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newUnit, setNewUnit] = useState({
@@ -155,18 +172,6 @@ export default function MaintenanceUnitList() {
     }
   };
 
-  const [locationOptions, setLocationOptions] = useState<{ id: string; name: string }[]>([]);
-
-  useEffect(() => {
-    locationService.getLocations()
-      .then((res: any) => {
-        if (res && res.data) {
-          setLocationOptions(res.data);
-        }
-      })
-      .catch((err) => console.error("Failed to fetch locations:", err));
-  }, []);
-
   const [debouncedSearch, setDebouncedSearch] = useState("");
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 500);
@@ -175,7 +180,6 @@ export default function MaintenanceUnitList() {
 
   const STORAGE_KEY = `unit_filters_${category}`;
   const isRestoringRef = useRef(true);
-  const [isRestored, setIsRestored] = useState(false);
 
   // Restore filters
   useEffect(() => {
@@ -244,16 +248,12 @@ export default function MaintenanceUnitList() {
       .then((res: any) => {
         if (res && res.data) {
           const formatted = res.data.map((item: any) => ({
-            id: item.id,
-            code: item.name,
-            image: item.image,
+            ...item,
             category: item.category?.name || category,
-            status: item.status === "READY" ? "Siap" : item.status === "BREAKDOWN" ? "Perbaikan" : "RJ Rawat Jalan",
+            status: item.status === "Breakdown" ? "Perbaikan" : item.status,
             hm: item.hm || 0,
             hours: item.hours || 0,
-            location: item.location || "Site A",
-            gpsVendor: item.gps_vendor || item.gpsVendor,
-            gpsStatus: item.gps_status || item.gpsStatus,
+            location: item.location?.name || item.location || "Site A",
           }));
           setUnits(formatted);
           setTotalRow(res.totalRow || 0);
@@ -332,54 +332,6 @@ export default function MaintenanceUnitList() {
                 />
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="locationFilter" className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                  Lokasi
-                </label>
-                <select
-                  id="locationFilter"
-                  value={location}
-                  onChange={(event) => setLocation(event.target.value)}
-                  className="w-full rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900/50 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
-                >
-                  <option value="Semua">Semua</option>
-                  {locationOptions.map((option) => (
-                    <option key={option.id} value={option.id}>{option.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="hmFilter" className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                  HM
-                </label>
-                <select
-                  id="hmFilter"
-                  value={hmRange}
-                  onChange={(event) => setHmRange(event.target.value as (typeof hmRanges)[number])}
-                  className="w-full rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900/50 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
-                >
-                  {hmRanges.map((range) => (
-                    <option key={range} value={range}>{range}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="hoursFilter" className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                  Total Jam
-                </label>
-                <select
-                  id="hoursFilter"
-                  value={hoursRange}
-                  onChange={(event) => setHoursRange(event.target.value as (typeof hoursRanges)[number])}
-                  className="w-full rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900/50 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
-                >
-                  {hoursRanges.map((range) => (
-                    <option key={range} value={range}>{range}</option>
-                  ))}
-                </select>
-              </div>
 
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="statusFilter" className="text-xs font-semibold text-slate-600 dark:text-slate-400">
@@ -448,8 +400,10 @@ export default function MaintenanceUnitList() {
                   hours={item.hours}
                   gpsVendor={item.gpsVendor}
                   gpsStatus={item.gpsStatus}
+                  service={item.service}
                   imageUrl={item.image || categoryImages[item.category]}
                   viewMode={viewMode}
+                  onWarningClick={() => setSelectedWarningUnit(item)}
                   onClick={() => router.push(`/maintenance/detail-unit?code=${item.code}&id=${item.id}`)}
                 />
               ))
@@ -492,6 +446,63 @@ export default function MaintenanceUnitList() {
               </button>
             </div>
           )}
+
+          {selectedWarningUnit && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+              <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-slate-900 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+                <div className="bg-amber-50 dark:bg-amber-500/10 p-6 border-b border-amber-100 dark:border-amber-500/20">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-bold text-amber-900 dark:text-amber-400">
+                      Tindakan Servis Diperlukan
+                    </h3>
+                    <button 
+                      onClick={() => setSelectedWarningUnit(null)}
+                      className="text-amber-700 hover:bg-amber-200/50 dark:text-amber-500 dark:hover:bg-amber-500/20 p-2 rounded-xl transition"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </button>
+                  </div>
+                  <p className="mt-2 text-sm text-amber-800 dark:text-amber-500/80">
+                    Unit <strong>{selectedWarningUnit.code}</strong> memerlukan perbaikan untuk item berikut:
+                  </p>
+                </div>
+                
+                <div className="p-6 max-h-[60vh] overflow-y-auto">
+                  <div className="space-y-4">
+                    {selectedWarningUnit.aplData?.filter((d: any) => d.input < 50).map((item: any, i: number) => (
+                      <div key={i} className="flex flex-col gap-1 p-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+                        <div className="font-semibold text-slate-800 dark:text-slate-200 text-sm">
+                          {item.name}
+                        </div>
+                        <div className={`text-sm font-medium ${item.input < 0 ? 'text-rose-500 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                          {item.input < 0 ? "Telah melewati batas rekomendasi" : "Sudah harus diganti"}
+                        </div>
+                        <div className="text-xs text-slate-500 mt-1">
+                          Sisa waktu / batas: {item.input} H
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {(!selectedWarningUnit.aplData || selectedWarningUnit.aplData.filter((d: any) => d.input < 50).length === 0) && (
+                      <div className="text-center text-slate-500 dark:text-slate-400 py-4 text-sm italic">
+                        Tidak ada detail peringatan servis yang tersedia.
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="p-4 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-800/50 flex justify-end">
+                  <button
+                    onClick={() => setSelectedWarningUnit(null)}
+                    className="px-6 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-300 dark:hover:bg-slate-600 transition"
+                  >
+                    Tutup
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
         </section>
       </MaintenanceLayout>
 

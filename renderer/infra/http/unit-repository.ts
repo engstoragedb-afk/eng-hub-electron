@@ -27,6 +27,12 @@ export class UnitRepository extends Repository<IUnit> implements IUnitRepository
         return resData.map((item: any) => Unit.create(item).unmarshall());
     }
 
+    async getAllUnitsWithDetail(params?: IUnitGetParams): Promise<any[]> {
+        const { data } = await this.restApi.axios.get(`${this.baseUrl}/all/details`, { params });
+        const resData = data.data || data;
+        return resData;
+    }
+
     async getUnitsByCategory(categoryId: string, params?: IUnitGetParams): Promise<IPaginatedResponse<IUnit>> {
         const { data } = await this.restApi.axios.get(`${this.baseUrl}/category/${categoryId}`, { params });
         const resData = data.data; // this is the paginated object { page, limit, totalRow, data }

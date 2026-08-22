@@ -43,6 +43,7 @@ export interface IUnitRepository extends IRepository<IUnit> {
     getUnitsByCategory(categoryId: string, params?: IUnitGetParams): Promise<IPaginatedResponse<IUnit>>;
     getUnitsDetailsByCategory(categoryId?: string): Promise<any[]>;
     getAllUnits(params?: IUnitGetParams): Promise<IUnit[]>;
+    getAllUnitsWithDetail(params?: IUnitGetParams): Promise<any[]>;
     createUnit(data: ICreateUnitPayload): Promise<IUnit>;
     updateUnit(id: string, data: Partial<IUnit>): Promise<IUnit>;
     uploadHoursFromExcel(file: File): Promise<any[]>;
