@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { FaTimes, FaCalendarAlt, FaChevronLeft, FaChevronRight, FaUndo } from "react-icons/fa";
 import { ACTIONS } from "@/common/utils/action";
 import { auditLogService } from "@/services";
 
-type GpsLogDrawerProps = {
+type HoursLogDrawerProps = {
   isOpen: boolean;
   onClose: () => void;
   unitId?: string;
@@ -12,9 +12,8 @@ type GpsLogDrawerProps = {
 
 type FilterType = "ALL" | "7_DAYS" | "1_MONTH" | "CUSTOM";
 
-export default function GpsLogDrawer({ isOpen, onClose, unitId, unitCode }: GpsLogDrawerProps) {
-  const [activeTab, setActiveTab] = useState<'HM' | 'ERROR'>('HM');
-  const [gpsLogs, setGpsLogs] = useState<any[]>([]);
+export default function HoursLogDrawer({ isOpen, onClose, unitId, unitCode }: HoursLogDrawerProps) {
+  const [hoursLogs, setHoursLogs] = useState<any[]>([]);
   const [isFetching, setIsFetching] = useState(false);
   const [filterType, setFilterType] = useState<FilterType>("ALL");
   const [showCalendar, setShowCalendar] = useState(false);
@@ -31,42 +30,23 @@ export default function GpsLogDrawer({ isOpen, onClose, unitId, unitCode }: GpsL
   const datesPerPage = 10;
 
   useEffect(() => {
-    if (!isOpen || (!unitId && !unitCode)) return;
-
-    const action = activeTab === 'HM' ? ACTIONS.CRON_UPDATE_GPS_HM_HOURS : ACTIONS.CRON_FETCH_GPS_ERROR;
+    if (!isOpen || !unitId) return;
 
     setIsFetching(true);
     setPage(1);
 
-    // Fetch with primary search query (unitId or unitCode) with fallback
-    const primaryQuery = unitId || unitCode;
     auditLogService.getAllLogs({
-      action,
-      unit: primaryQuery,
+      action: ACTIONS.UPDATE_HOURS_UNIT,
+      unit: unitId,
       page: 1,
       limit: 1000
     })
-      .then(async (res) => {
-        let items = res.data || [];
-        // If 0 items found using unitId, try searching with unitCode (e.g. PC01)
-        if (items.length === 0 && unitCode && unitCode !== unitId) {
-          try {
-            const fallbackRes = await auditLogService.getAllLogs({
-              action,
-              unit: unitCode,
-              page: 1,
-              limit: 1000
-            });
-            if (fallbackRes.data && fallbackRes.data.length > 0) {
-              items = fallbackRes.data;
-            }
-          } catch (e) {}
-        }
-        setGpsLogs(items);
+      .then(res => {
+        setHoursLogs(res.data || []);
       })
       .catch(console.error)
       .finally(() => setIsFetching(false));
-  }, [isOpen, activeTab, unitId, unitCode]);
+  }, [isOpen, unitId]);
 
   // Global mouseup to stop drag selection
   useEffect(() => {
@@ -89,17 +69,17 @@ export default function GpsLogDrawer({ isOpen, onClose, unitId, unitCode }: GpsL
 
   // Group logs by date
   const groupedLogs = useMemo(() => {
-    return gpsLogs.reduce((acc, log) => {
+    return hoursLogs.reduce((acc, log) => {
       let parsedOld: any = {};
       let parsedNew: any = {};
       try {
-        if (log.old_data) parsedOld = typeof log.old_data === 'string' ? JSON.parse(log.old_data) : log.old_data;
-        if (log.new_data) parsedNew = typeof log.new_data === 'string' ? JSON.parse(log.new_data) : log.new_data;
-      } catch (e) { }
+        if (log.old_data) parsedOld = JSON.parse(log.old_data);
+        if (log.new_data) parsedNew = JSON.parse(log.new_data);
+      } catch (e) {}
 
       const dateObj = new Date(log.created_at);
-      const dateStr = dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-      const timeStr = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      const dateStr = dateObj.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+      const timeStr = dateObj.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
 
       if (!acc[dateStr]) {
         acc[dateStr] = {
@@ -111,12 +91,12 @@ export default function GpsLogDrawer({ isOpen, onClose, unitId, unitCode }: GpsL
         };
       }
 
-      const oldH = Number(parsedOld.hours ?? parsedOld.hm ?? parsedOld.running_hours ?? 0);
-      const newH = Number(parsedNew.hours ?? parsedNew.hm ?? parsedNew.running_hours ?? 0);
-      const hoursAdded = newH - oldH;
+      const oldH = Number(parsedOld.hours ?? parsedOld.hm ?? 0);
+      const newH = Number(parsedNew.hours ?? parsedNew.hm ?? 0);
+      const delta = newH - oldH;
 
-      if (hoursAdded > 0) {
-        acc[dateStr].totalHoursAdded += hoursAdded;
+      if (delta > 0) {
+        acc[dateStr].totalHoursAdded += delta;
       }
 
       acc[dateStr].logs.push({
@@ -124,12 +104,12 @@ export default function GpsLogDrawer({ isOpen, onClose, unitId, unitCode }: GpsL
         timeStr,
         parsedOld,
         parsedNew,
-        hoursAdded
+        delta
       });
 
       return acc;
     }, {} as Record<string, any>);
-  }, [gpsLogs]);
+  }, [hoursLogs]);
 
   // Filter grouped logs
   const filteredGroupedLogs = useMemo(() => {
@@ -274,17 +254,17 @@ export default function GpsLogDrawer({ isOpen, onClose, unitId, unitCode }: GpsL
   ];
 
   return (
-    <div
+    <div 
       className={`fixed inset-0 z-50 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
     >
       <div className="absolute inset-0 bg-slate-900/40" onClick={onClose} />
-      <div
+      <div 
         className={`absolute inset-y-0 right-0 w-full max-w-md bg-white dark:bg-slate-900 shadow-2xl transition-transform duration-300 ease-in-out flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
       >
         {/* Drawer Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-white/10 shrink-0">
           <div>
-            <h3 className="text-lg font-black text-slate-900 dark:text-white">HISTORY GPS</h3>
+            <h3 className="text-lg font-black text-slate-900 dark:text-white">HISTORY HOURS</h3>
             {unitCode && (
               <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">
                 Unit: <span className="font-bold text-slate-700 dark:text-slate-300 uppercase">{unitCode}</span>
@@ -296,24 +276,8 @@ export default function GpsLogDrawer({ isOpen, onClose, unitId, unitCode }: GpsL
           </button>
         </div>
 
-        {/* Tab Selection */}
-        <div className="flex px-6 pt-3 gap-4 border-b border-slate-200 dark:border-white/10 shrink-0">
-          <button
-            onClick={() => { setActiveTab('HM'); setPage(1); }}
-            className={`pb-2.5 text-xs font-bold transition border-b-2 cursor-pointer ${activeTab === 'HM' ? 'border-sky-500 text-sky-500' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-          >
-            Update HM / Jam
-          </button>
-          <button
-            onClick={() => { setActiveTab('ERROR'); setPage(1); }}
-            className={`pb-2.5 text-xs font-bold transition border-b-2 cursor-pointer ${activeTab === 'ERROR' ? 'border-sky-500 text-sky-500' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-          >
-            Error GPS
-          </button>
-        </div>
-
         {/* Filter Bar */}
-        <div className="px-6 pt-3 pb-3 border-b border-slate-200 dark:border-white/10 shrink-0 bg-slate-50/50 dark:bg-slate-950/20">
+        <div className="px-6 pt-4 pb-3 border-b border-slate-200 dark:border-white/10 shrink-0 bg-slate-50/50 dark:bg-slate-950/20">
           <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-200/70 dark:bg-slate-800/60 border border-slate-300/60 dark:border-white/5">
             <button
               onClick={() => { setFilterType("ALL"); setShowCalendar(false); setPage(1); }}
@@ -458,22 +422,21 @@ export default function GpsLogDrawer({ isOpen, onClose, unitId, unitCode }: GpsL
           </div>
         )}
 
-        {/* Content List: Date Rows (HM) or Error Cards (ERROR) */}
+        {/* Content List: Date Rows */}
         <div className="flex-1 overflow-y-auto p-6 space-y-3">
           {isFetching ? (
             <div className="flex justify-center items-center h-32">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-sky-500 dark:border-white/10 dark:border-t-sky-500" />
             </div>
-          ) : filteredGroupedLogs.length === 0 ? (
+          ) : paginatedGroups.length === 0 ? (
             <div className="text-center text-slate-400 dark:text-slate-500 py-12 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-200 dark:border-white/10 text-xs font-semibold">
-              Tidak ada log GPS pada rentang waktu ini.
+              Tidak ada history hours pada rentang waktu ini.
             </div>
-          ) : activeTab === 'HM' ? (
-            /* TAB UPDATE HM / JAM */
+          ) : (
             <div className="space-y-3">
               {paginatedGroups.map((group: any) => (
-                <div
-                  key={group.date}
+                <div 
+                  key={group.date} 
                   className="flex justify-between items-center py-3.5 px-4 rounded-2xl bg-white dark:bg-white/5 border border-slate-200/80 dark:border-white/10 shadow-2xs hover:shadow-xs transition"
                 >
                   <h4 className="font-extrabold text-slate-800 dark:text-slate-100 text-sm">
@@ -485,43 +448,13 @@ export default function GpsLogDrawer({ isOpen, onClose, unitId, unitCode }: GpsL
                 </div>
               ))}
             </div>
-          ) : (
-            /* TAB ERROR GPS */
-            <div className="space-y-6">
-              {paginatedGroups.map((group: any) => (
-                <div key={group.date} className="space-y-3">
-                  <div className="flex justify-between items-center px-1">
-                    <h4 className="font-extrabold text-slate-800 dark:text-slate-100 text-sm">{group.date}</h4>
-                    <span className="text-xs font-semibold text-rose-500 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 px-2.5 py-0.5 rounded-full">
-                      {group.logs.length} Error
-                    </span>
-                  </div>
-
-                  <div className="space-y-2.5">
-                    {group.logs.map((log: any) => (
-                      <div key={log.id} className="p-3.5 rounded-2xl border border-rose-100 dark:border-rose-500/20 bg-rose-50/40 dark:bg-rose-500/5 shadow-2xs">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{log.timeStr}</span>
-                          <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 px-2 py-0.5 rounded-md border border-slate-200/60 dark:border-white/5">
-                            {log.user_agent || "Sistem"}
-                          </span>
-                        </div>
-                        <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">
-                          {log.parsedNew?.error || "Error tidak diketahui"}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
           )}
         </div>
 
         {/* Drawer Pagination Footer */}
         {filteredGroupedLogs.length > datesPerPage && (
           <div className="p-4 border-t border-slate-200 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50 shrink-0">
-            <button
+            <button 
               disabled={page === 1}
               onClick={() => setPage(p => Math.max(1, p - 1))}
               className="px-4 py-2 text-sm font-semibold rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 disabled:opacity-50 transition hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer"
@@ -531,7 +464,7 @@ export default function GpsLogDrawer({ isOpen, onClose, unitId, unitCode }: GpsL
             <span className="text-xs font-medium text-slate-500">
               Hal {page} dari {totalPages}
             </span>
-            <button
+            <button 
               disabled={page >= totalPages}
               onClick={() => setPage(p => p + 1)}
               className="px-4 py-2 text-sm font-semibold rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 disabled:opacity-50 transition hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer"

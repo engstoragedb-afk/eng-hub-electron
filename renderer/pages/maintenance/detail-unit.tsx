@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
-import { FaArrowLeft, FaExpandAlt, FaTimes, FaSearchPlus, FaCrop, FaImage, FaCheckCircle, FaWrench, FaMapMarkerAlt, FaWifi, FaExclamationTriangle, FaEyeSlash } from "react-icons/fa";
+import { FaArrowLeft, FaExpandAlt, FaTimes, FaSearchPlus, FaCrop, FaImage, FaCheckCircle, FaWrench, FaMapMarkerAlt, FaWifi, FaExclamationTriangle, FaEyeSlash, FaHistory } from "react-icons/fa";
 import toast from "react-hot-toast";
 import { EGPSStatus } from "@/common/utils/status";
 
@@ -14,6 +14,7 @@ import dynamic from 'next/dynamic';
 import { unitService, typeUnitService, locationService } from "@/services";
 import { repairs } from "@/common/data/repairData";
 import GpsLogDrawer from "@/components/organisms/GpsLogDrawer";
+import HoursLogDrawer from "@/components/organisms/HoursLogDrawer";
 import AplEditFormModal from "@/components/organisms/AplEditFormModal";
 
 const DetailUnitChart = dynamic(() => import("@/components/organisms/DetailUnitChart"), { 
@@ -81,18 +82,19 @@ export default function UnitDetailPage() {
   }, [isChartModalOpen, editingAplItem, isCropModalOpen, isLightboxOpen]);
 
   const [isGpsLogOpen, setIsGpsLogOpen] = useState(false);
+  const [isHoursLogOpen, setIsHoursLogOpen] = useState(false);
   
   const [activeMainTab, setActiveMainTab] = useState<'JADWAL' | 'HISTORY' | 'KOEFISIEN_SOLAR'>('JADWAL');
   const [repairLogs, setRepairLogs] = useState<any[]>([]);
 
   useEffect(() => {
-    if (isGpsLogOpen) {
+    if (isGpsLogOpen || isHoursLogOpen) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "unset";
     }
     return () => { document.body.style.overflow = "unset"; };
-  }, [isGpsLogOpen]);
+  }, [isGpsLogOpen, isHoursLogOpen]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -590,7 +592,17 @@ export default function UnitDetailPage() {
                   </div>
                   */}
                   <div className="rounded-2xl bg-white dark:bg-slate-900/70 p-4">
-                    <p className="text-xs text-slate-400 dark:text-slate-600 dark:text-slate-400">HOURS</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-slate-400 dark:text-slate-600 dark:text-slate-400">HOURS</p>
+                      <button
+                        type="button"
+                        onClick={() => setIsHoursLogOpen(true)}
+                        className="p-1 rounded-lg text-slate-400 hover:text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-950/40 dark:hover:text-sky-400 transition cursor-pointer"
+                        title="Riwayat Perubahan Hours"
+                      >
+                        <FaHistory size={13} />
+                      </button>
+                    </div>
                     <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">
                       <EditableText value={unit.hours} type="number" onSave={(val) => handleUpdateUnit({ hours: Number(val) })} />
                     </p>
@@ -1067,6 +1079,15 @@ export default function UnitDetailPage() {
         isOpen={isGpsLogOpen} 
         onClose={() => setIsGpsLogOpen(false)} 
         unitId={apiUnit?.id} 
+        unitCode={apiUnit?.code}
+      />
+
+      {/* Hours Log Drawer */}
+      <HoursLogDrawer 
+        isOpen={isHoursLogOpen} 
+        onClose={() => setIsHoursLogOpen(false)} 
+        unitId={apiUnit?.id} 
+        unitCode={apiUnit?.code}
       />
 
     </React.Fragment>
