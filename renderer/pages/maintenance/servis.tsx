@@ -3,12 +3,11 @@ import MaintenanceLayout from "@/components/organisms/MaintenanceLayout";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { FaChevronLeft, FaChevronRight, FaFileExcel, FaSearch, FaColumns, FaTimes, FaUpload, FaChevronDown, FaPrint } from "react-icons/fa";
+import { FaChevronLeft, FaChevronRight, FaFileExcel, FaSearch, FaColumns, FaTimes, FaChevronDown, FaPrint } from "react-icons/fa";
 import { categoryUnitsService, unitService } from "@/services";
 import { exportServisToExcel } from "@/utils/exportExcel";
 import { createPortal } from "react-dom";
 import PrintPreviewModal from "@/components/organisms/PrintPreviewModal";
-import ImportResultModal from "@/components/organisms/ImportResultModal";
 
 const FIXED_COLUMNS = [
   { id: "no", name: "No", defaultWidth: 60, align: "center" },
@@ -38,9 +37,6 @@ export default function MaintenanceServisPage() {
   const [collapsedCols, setCollapsedCols] = useLocalStorage<Record<string, boolean>>("servis_collapsed_cols", {});
   const [isFloatingSearchOpen, setIsFloatingSearchOpen] = useState(false);
   const floatingSearchRef = useRef<HTMLInputElement>(null);
-  const importInputRef = useRef<HTMLInputElement>(null);
-  const [isImporting, setIsImporting] = useState(false);
-  const [importResult, setImportResult] = useState<{ notUpdated: any[] } | null>(null);
   const [mounted, setMounted] = useState(false);
   const [selectedUnitsMap, setSelectedUnitsMap] = useLocalStorage<Record<string, any>>("servis_selected_units_map", {});
   const [showPrintModal, setShowPrintModal] = useState(false);
@@ -193,26 +189,6 @@ export default function MaintenanceServisPage() {
     });
   };
 
-  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    // Reset input so same file can be re-selected
-    e.target.value = '';
-    setIsImporting(true);
-    try {
-      const notUpdated = await unitService.uploadHoursFromExcel(file);
-      setImportResult({ notUpdated: notUpdated || [] });
-      // Refresh data
-      if (activeCategoryId) {
-        unitService.getUnitsDetailsByCategory(activeCategoryId).then(d => setDetailsData(d || []));
-      }
-    } catch (err: any) {
-      setImportResult({ notUpdated: [{ reason: err?.response?.data?.message || err?.message || 'Terjadi kesalahan saat import.' }] });
-    } finally {
-      setIsImporting(false);
-    }
-  };
-
 
   return (
     <>
@@ -279,29 +255,7 @@ export default function MaintenanceServisPage() {
               ))}
             </div>
 
-            {/* Import input (hidden) */}
-            <input
-              ref={importInputRef}
-              type="file"
-              accept=".xlsx,.xls"
-              className="hidden"
-              onChange={handleImportExcel}
-            />
-
             <div className="flex items-center gap-2 shrink-0">
-              {/* Import Button */}
-              <button
-                onClick={() => importInputRef.current?.click()}
-                disabled={isImporting}
-                className="flex items-center justify-center gap-2 rounded-xl border border-violet-500/50 bg-violet-500/10 p-2.5 text-sm font-semibold text-violet-600 dark:text-violet-400 transition hover:bg-violet-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Import HM dari file Excel"
-              >
-                {isImporting ? (
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                ) : (
-                  <FaUpload size={16} />
-                )}
-              </button>
 
               {/* Export Button */}
               <button
@@ -811,15 +765,6 @@ export default function MaintenanceServisPage() {
           </div>
         </div>
       </MaintenanceLayout>
-
-      {/* Import Result Modal */}
-      {importResult && mounted && createPortal(
-        <ImportResultModal 
-          importResult={importResult} 
-          onClose={() => setImportResult(null)} 
-        />,
-        document.body
-      )}
 
       {/* Print Preview Modal */}
       {showPrintModal && mounted && createPortal(
