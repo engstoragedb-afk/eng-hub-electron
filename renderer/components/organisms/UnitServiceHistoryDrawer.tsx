@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { FaTimes, FaHistory, FaCheckCircle, FaClock, FaSearchPlus, FaWrench, FaCalendarAlt } from "react-icons/fa";
 import { aplHistoryService } from "@/services";
 import { APLSTATUS } from "@/common/utils/status";
