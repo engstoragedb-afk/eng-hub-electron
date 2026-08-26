@@ -5,3 +5,8 @@ export enum EGPSStatus {
     ERROR_UNAVAILABLE = 'ERROR_UNAVAILABLE',
     OFFLINE = 'OFFLINE',
 }
+
+export enum APLSTATUS {
+    SERVICE = 'SERVICE',
+    UPDATE = 'UPDATE',
+}

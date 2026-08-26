@@ -4,7 +4,8 @@ import MaintenanceLayout from "@/components/organisms/MaintenanceLayout";
 import SectionHeading from "@/components/atoms/SectionHeading";
 import { unitService } from "@/services/unit-service";
 import { useRouter } from "next/router";
-import { FaExclamationTriangle, FaChevronRight, FaWrench, FaTools, FaUndo, FaSearch, FaTimes } from "react-icons/fa";
+import { FaExclamationTriangle, FaChevronRight, FaWrench, FaTools, FaUndo, FaSearch, FaTimes, FaCheckCircle } from "react-icons/fa";
+import CompleteServiceModal from "@/components/organisms/CompleteServiceModal";
 
 const categoryImages: Record<string, string> = {
   EXCAVATOR: "/units/exavator.png",
@@ -22,22 +23,12 @@ export default function PeringatanServisPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("Semua");
   const [activeLevelTab, setActiveLevelTab] = useState("Semua Level");
-  const [selectedWarningUnit, setSelectedWarningUnit] = useState<any | null>(null);
+  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
+  const [servicingItem, setServicingItem] = useState<{ item: any; unit: any } | null>(null);
 
-  useEffect(() => {
-    if (selectedWarningUnit) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "unset";
-    }
-    return () => {
-      document.body.style.overflow = "unset";
-    };
-  }, [selectedWarningUnit]);
-  
   const tabs = ["Semua", "350", "500", "1000", "2000", "4000", "5000", "NORMAL"];
   
-  useEffect(() => {
+  const fetchUnits = () => {
     setIsLoading(true);
     unitService.getAllUnitsWithDetail()
       .then((res) => {
@@ -49,46 +40,65 @@ export default function PeringatanServisPage() {
       .finally(() => {
         setIsLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchUnits();
   }, []);
 
   const mappedUnits = useMemo(() => {
     return units.map((unit: any) => {
+      const rawHours = unit.hours !== undefined && unit.hours !== null ? unit.hours : unit.hm;
+      const hoursNum = parseFloat(String(rawHours ?? 0).replace(/[^\d.-]/g, ''));
+      const isZeroHours = isNaN(hoursNum) || hoursNum <= 0;
+
       const aplItems = (unit.aplData || []).map((apl: any) => {
         const input = apl.input ?? 0;
+        const vault = apl.vault ?? 0;
         let level: 'CRITICAL' | 'URGENT' | 'ATTENTION' | 'NORMAL' = 'NORMAL';
         let message = 'Dalam batas normal';
 
-        if (input < 0) {
-          level = 'CRITICAL';
-          message = 'Telah melewati batas rekomendasi';
-        } else if (input <= 10) {
-          level = 'URGENT';
-          message = 'Sudah harus diganti';
-        } else if (input < 50) {
-          level = 'ATTENTION';
-          message = 'Mendekati jadwal pemeliharaan';
+        if (!isZeroHours && vault > 0) {
+          if (input < 0) {
+            level = 'CRITICAL';
+            message = 'Telah melewati batas rekomendasi';
+          } else if (input > 0 && input <= 10) {
+            level = 'URGENT';
+            message = 'Sudah harus diganti';
+          } else if (input > 10 && input < 50) {
+            level = 'ATTENTION';
+            message = 'Mendekati jadwal pemeliharaan';
+          } else {
+            level = 'NORMAL';
+            message = 'Dalam batas normal';
+          }
         }
 
         return {
           ...apl,
           level,
           message,
-          input
+          input,
+          vault
         };
       });
 
       // Determine unit's most severe level
       let mostSevereLevel: 'CRITICAL' | 'URGENT' | 'ATTENTION' | 'NORMAL' = 'NORMAL';
-      if (aplItems.some((i: any) => i.level === 'CRITICAL')) {
-        mostSevereLevel = 'CRITICAL';
-      } else if (aplItems.some((i: any) => i.level === 'URGENT')) {
-        mostSevereLevel = 'URGENT';
-      } else if (aplItems.some((i: any) => i.level === 'ATTENTION')) {
-        mostSevereLevel = 'ATTENTION';
+      if (!isZeroHours) {
+        if (aplItems.some((i: any) => i.level === 'CRITICAL')) {
+          mostSevereLevel = 'CRITICAL';
+        } else if (aplItems.some((i: any) => i.level === 'URGENT')) {
+          mostSevereLevel = 'URGENT';
+        } else if (aplItems.some((i: any) => i.level === 'ATTENTION')) {
+          mostSevereLevel = 'ATTENTION';
+        }
       }
 
-      // Warning items are those with input < 50
-      const warningItems = aplItems.filter((i: any) => i.input < 50);
+      // Warning items are those with vault > 0 and (input < 0 or (input > 0 and input < 50)).
+      const warningItems = isZeroHours 
+        ? [] 
+        : aplItems.filter((i: any) => (i.vault ?? 0) > 0 && (i.input < 0 || (i.input > 0 && i.input < 50)));
 
       const categoryName = unit.category?.name || (typeof unit.category === 'string' ? unit.category : '');
       const imageUrl = unit.image || (categoryName ? categoryImages[categoryName] : '');
@@ -99,7 +109,7 @@ export default function PeringatanServisPage() {
         category: categoryName,
         type: unit.type?.name || (typeof unit.type === 'string' ? unit.type : ''),
         image: imageUrl,
-        service: unit.service || 'NORMAL',
+        service: (isZeroHours || mostSevereLevel === 'NORMAL') ? 'NORMAL' : (unit.service || 'NORMAL'),
         hours: unit.hours,
         hm: unit.hm,
         status: unit.status,
@@ -109,6 +119,22 @@ export default function PeringatanServisPage() {
       };
     });
   }, [units]);
+
+  const selectedWarningUnit = useMemo(() => {
+    if (!selectedUnitId) return null;
+    return mappedUnits.find(u => u.id === selectedUnitId) || null;
+  }, [mappedUnits, selectedUnitId]);
+
+  useEffect(() => {
+    if (selectedWarningUnit) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [selectedWarningUnit]);
 
   const psCounts = useMemo(() => {
     const counts: Record<string, number> = { Semua: mappedUnits.length };
@@ -380,7 +406,7 @@ export default function PeringatanServisPage() {
                     return (
                       <div 
                         key={unit.id} 
-                        onClick={() => setSelectedWarningUnit(unit)}
+                        onClick={() => setSelectedUnitId(unit.id)}
                         className="group flex flex-col p-4 bg-white dark:bg-slate-900/60 rounded-3xl border border-slate-100 dark:border-white/5 shadow-sm relative overflow-hidden cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-300"
                       >
                         <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${barColor}`}></div>
@@ -472,7 +498,7 @@ export default function PeringatanServisPage() {
                       </h3>
                     </div>
                     <button 
-                      onClick={() => setSelectedWarningUnit(null)}
+                      onClick={() => setSelectedUnitId(null)}
                       className={`p-2 rounded-xl transition cursor-pointer ${
                         selectedWarningUnit.mostSevereLevel === 'NORMAL'
                           ? 'text-emerald-700 hover:bg-emerald-200/50 dark:text-emerald-500 dark:hover:bg-emerald-500/20'
@@ -523,8 +549,24 @@ export default function PeringatanServisPage() {
                         <div className={`text-sm font-semibold ${textColor}`}>
                           {item.message}
                         </div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
-                          Sisa waktu / batas: <span className="font-bold text-slate-700 dark:text-slate-300">{item.input} H</span>
+                        
+                        <div className="mt-2 pt-2 border-t border-slate-200/60 dark:border-white/5 flex items-center justify-between gap-2">
+                          <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                            Sisa waktu / batas: <span className="font-bold text-slate-700 dark:text-slate-300">{item.input} H</span>
+                          </div>
+                          {(item.level === 'CRITICAL' || item.level === 'URGENT' || item.level === 'ATTENTION') && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setServicingItem({ item, unit: selectedWarningUnit });
+                              }}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white text-[11px] font-bold shadow-xs shadow-emerald-500/20 transition cursor-pointer"
+                            >
+                              <FaCheckCircle size={11} />
+                              <span>SUDAH DI SERVICE</span>
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
@@ -545,7 +587,7 @@ export default function PeringatanServisPage() {
                     Buka Detail Unit →
                   </button>
                   <button
-                    onClick={() => setSelectedWarningUnit(null)}
+                    onClick={() => setSelectedUnitId(null)}
                     className="px-6 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-300 dark:hover:bg-slate-600 transition cursor-pointer"
                   >
                     Tutup
@@ -553,6 +595,17 @@ export default function PeringatanServisPage() {
                 </div>
               </div>
             </div>
+          )}
+
+          {/* Modal Form Konfirmasi Sudah Di Servis */}
+          {servicingItem && (
+            <CompleteServiceModal
+              isOpen={!!servicingItem}
+              onClose={() => setServicingItem(null)}
+              item={servicingItem.item}
+              unit={servicingItem.unit}
+              onSuccess={fetchUnits}
+            />
           )}
         </section>
       </MaintenanceLayout>

@@ -1,7 +1,7 @@
 import { IAplHistoryService } from "@/domain/services/apl-history-service";
 import { IAplHistoryRepository } from "@/domain/repositories/apl-history-repository";
 import { aplHistoryRepository } from "@/infra/http/apl-history-repository";
-import { IAplHistory } from "@/domain/models/apl-history";
+import { IAplHistory, IAplHistoryCreate, IAplHistoryQueryParams } from "@/domain/models/apl-history";
 import { Service } from "@/services/service";
 
 export class AplHistoryService extends Service<IAplHistory, IAplHistoryRepository> implements IAplHistoryService {
@@ -18,11 +18,11 @@ export class AplHistoryService extends Service<IAplHistory, IAplHistoryRepositor
         return AplHistoryService.instance;
     }
 
-    async findAllNoPaginate(query: { apl_id: string }): Promise<IAplHistory[]> {
+    async findAllNoPaginate(query?: IAplHistoryQueryParams): Promise<IAplHistory[]> {
         return this.repository.findAllNoPaginate(query);
     }
 
-    async createHistory(data: any): Promise<IAplHistory> {
+    async createHistory(data: IAplHistoryCreate | any): Promise<IAplHistory> {
         return this.repository.createHistory(data);
     }
 }

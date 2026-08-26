@@ -44,11 +44,14 @@ export default function AplEditFormModal({
         onClose();
       } else if (navigateNext) {
         const sortedAplData = updated?.aplData || [];
-        const currentIndex = sortedAplData.findIndex((item: any) => item.category_apl_id === editingAplItem.category_apl_id);
-        if (currentIndex !== -1) {
-          let nextIndex = currentIndex + 1;
-          if (nextIndex >= sortedAplData.length) nextIndex = 0;
-          setEditingAplItem(sortedAplData[nextIndex]);
+        const editableItems = sortedAplData.filter((item: any) => (item.input ?? 0) >= 50);
+        if (editableItems.length > 0) {
+          const currentIndex = editableItems.findIndex((item: any) => item.category_apl_id === editingAplItem.category_apl_id);
+          let nextIndex = currentIndex !== -1 ? currentIndex + 1 : 0;
+          if (nextIndex >= editableItems.length) nextIndex = 0;
+          setEditingAplItem(editableItems[nextIndex]);
+        } else {
+          onClose();
         }
       }
     } catch (err) {
@@ -62,14 +65,20 @@ export default function AplEditFormModal({
   const handleNavigateAplItem = (direction: 'prev' | 'next') => {
     if (!editingAplItem || !apiUnit?.aplData) return;
     const sortedAplData = apiUnit.aplData || [];
-    const currentIndex = sortedAplData.findIndex((item: any) => item.category_apl_id === editingAplItem.category_apl_id);
-    if (currentIndex === -1) return;
+    const editableItems = sortedAplData.filter((item: any) => (item.input ?? 0) >= 50);
+    if (editableItems.length === 0) return;
+    
+    const currentIndex = editableItems.findIndex((item: any) => item.category_apl_id === editingAplItem.category_apl_id);
+    if (currentIndex === -1) {
+      setEditingAplItem(editableItems[0]);
+      return;
+    }
     
     let nextIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
-    if (nextIndex < 0) nextIndex = sortedAplData.length - 1;
-    if (nextIndex >= sortedAplData.length) nextIndex = 0;
+    if (nextIndex < 0) nextIndex = editableItems.length - 1;
+    if (nextIndex >= editableItems.length) nextIndex = 0;
     
-    setEditingAplItem(sortedAplData[nextIndex]);
+    setEditingAplItem(editableItems[nextIndex]);
   };
 
   if (!editingAplItem) return null;
@@ -84,8 +93,9 @@ export default function AplEditFormModal({
           <div className="flex items-start justify-between">
             {(() => {
               const sortedData = apiUnit?.aplData || [];
-              const total = sortedData.length;
-              const currentIdx = sortedData.findIndex((item: any) => item.category_apl_id === editingAplItem.category_apl_id);
+              const editableItems = sortedData.filter((item: any) => (item.input ?? 0) >= 50);
+              const total = editableItems.length;
+              const currentIdx = editableItems.findIndex((item: any) => item.category_apl_id === editingAplItem.category_apl_id);
               if (total > 0 && currentIdx !== -1) {
                 return (
                   <div className="flex flex-col gap-2">

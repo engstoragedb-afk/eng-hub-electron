@@ -59,27 +59,38 @@ export default function MaintenanceDashboard() {
         setAllUnits(rawList);
 
         const processed = rawList.map((unit: any) => {
+          const rawHours = unit.hours !== undefined && unit.hours !== null ? unit.hours : unit.hm;
+          const hoursNum = parseFloat(String(rawHours ?? 0).replace(/[^\d.-]/g, ''));
+          const isZeroHours = isNaN(hoursNum) || hoursNum <= 0;
+
           const aplItems = (unit.aplData || []).map((apl: any) => {
             const input = apl.input ?? 0;
+            const vault = apl.vault ?? 0;
             let level: 'CRITICAL' | 'URGENT' | 'ATTENTION' | 'NORMAL' = 'NORMAL';
             let message = 'Dalam batas normal';
 
-            if (input < 0) {
-              level = 'CRITICAL';
-              message = 'Telah melewati batas rekomendasi';
-            } else if (input <= 10) {
-              level = 'URGENT';
-              message = 'Sudah harus diganti';
-            } else if (input < 50) {
-              level = 'ATTENTION';
-              message = 'Mendekati jadwal pemeliharaan';
+            if (!isZeroHours && vault > 0) {
+              if (input < 0) {
+                level = 'CRITICAL';
+                message = 'Telah melewati batas rekomendasi';
+              } else if (input > 0 && input <= 10) {
+                level = 'URGENT';
+                message = 'Sudah harus diganti';
+              } else if (input > 10 && input < 50) {
+                level = 'ATTENTION';
+                message = 'Mendekati jadwal pemeliharaan';
+              } else {
+                level = 'NORMAL';
+                message = 'Dalam batas normal';
+              }
             }
 
             return {
               ...apl,
               level,
               message,
-              input
+              input,
+              vault
             };
           });
 
@@ -87,22 +98,27 @@ export default function MaintenanceDashboard() {
           let mostSevereLevel: 'CRITICAL' | 'URGENT' | 'ATTENTION' | 'NORMAL' = 'NORMAL';
           let mostSevereItem = aplItems[0] || null;
 
-          const criticalItems = aplItems.filter((i: any) => i.level === 'CRITICAL');
-          const urgentItems = aplItems.filter((i: any) => i.level === 'URGENT');
-          const attentionItems = aplItems.filter((i: any) => i.level === 'ATTENTION');
+          if (!isZeroHours) {
+            const criticalItems = aplItems.filter((i: any) => i.level === 'CRITICAL');
+            const urgentItems = aplItems.filter((i: any) => i.level === 'URGENT');
+            const attentionItems = aplItems.filter((i: any) => i.level === 'ATTENTION');
 
-          if (criticalItems.length > 0) {
-            mostSevereLevel = 'CRITICAL';
-            mostSevereItem = criticalItems.sort((a: any, b: any) => a.input - b.input)[0];
-          } else if (urgentItems.length > 0) {
-            mostSevereLevel = 'URGENT';
-            mostSevereItem = urgentItems.sort((a: any, b: any) => a.input - b.input)[0];
-          } else if (attentionItems.length > 0) {
-            mostSevereLevel = 'ATTENTION';
-            mostSevereItem = attentionItems.sort((a: any, b: any) => a.input - b.input)[0];
+            if (criticalItems.length > 0) {
+              mostSevereLevel = 'CRITICAL';
+              mostSevereItem = criticalItems.sort((a: any, b: any) => a.input - b.input)[0];
+            } else if (urgentItems.length > 0) {
+              mostSevereLevel = 'URGENT';
+              mostSevereItem = urgentItems.sort((a: any, b: any) => a.input - b.input)[0];
+            } else if (attentionItems.length > 0) {
+              mostSevereLevel = 'ATTENTION';
+              mostSevereItem = attentionItems.sort((a: any, b: any) => a.input - b.input)[0];
+            } else {
+              mostSevereLevel = 'NORMAL';
+              mostSevereItem = aplItems.sort((a: any, b: any) => a.input - b.input)[0] || null;
+            }
           } else {
             mostSevereLevel = 'NORMAL';
-            mostSevereItem = aplItems.sort((a: any, b: any) => a.input - b.input)[0] || null;
+            mostSevereItem = aplItems[0] || null;
           }
 
           const priorityOrder: Record<string, number> = {
@@ -121,12 +137,12 @@ export default function MaintenanceDashboard() {
             category: categoryName,
             type: unit.type?.name || (typeof unit.type === 'string' ? unit.type : ''),
             image: imageUrl,
-            service: unit.service || 'NORMAL',
+            service: (isZeroHours || mostSevereLevel === 'NORMAL') ? 'NORMAL' : (unit.service || 'NORMAL'),
             hours: unit.hours,
             mostSevereLevel,
             priority: priorityOrder[mostSevereLevel] || 5,
             targetItem: mostSevereItem,
-            dueCount: aplItems.filter((i: any) => i.input < 50).length
+            dueCount: isZeroHours ? 0 : aplItems.filter((i: any) => (i.vault ?? 0) > 0 && (i.input < 0 || (i.input > 0 && i.input < 50))).length
           };
         });
 

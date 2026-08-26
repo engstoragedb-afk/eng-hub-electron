@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
-import { FaArrowLeft, FaExpandAlt, FaTimes, FaSearchPlus, FaCrop, FaImage, FaCheckCircle, FaWrench, FaMapMarkerAlt, FaWifi, FaExclamationTriangle, FaEyeSlash, FaHistory } from "react-icons/fa";
+import { FaArrowLeft, FaExpandAlt, FaTimes, FaSearchPlus, FaCrop, FaImage, FaCheckCircle, FaWrench, FaMapMarkerAlt, FaWifi, FaExclamationTriangle, FaEyeSlash, FaHistory, FaCalendarAlt, FaClock } from "react-icons/fa";
 import toast from "react-hot-toast";
-import { EGPSStatus } from "@/common/utils/status";
+import { EGPSStatus, APLSTATUS } from "@/common/utils/status";
 
 import MaintenanceLayout from "@/components/organisms/MaintenanceLayout";
 import Badge from "@/components/atoms/Badge";
@@ -11,8 +11,7 @@ import CopyButton from "@/components/atoms/CopyButton";
 import Lightbox from "@/components/organisms/Lightbox";
 import ImageCropModal from "@/components/organisms/ImageCropModal";
 import dynamic from 'next/dynamic';
-import { unitService, typeUnitService, locationService } from "@/services";
-import { repairs } from "@/common/data/repairData";
+import { unitService, typeUnitService, locationService, aplHistoryService } from "@/services";
 import GpsLogDrawer from "@/components/organisms/GpsLogDrawer";
 import HoursLogDrawer from "@/components/organisms/HoursLogDrawer";
 import AplEditFormModal from "@/components/organisms/AplEditFormModal";
@@ -84,8 +83,32 @@ export default function UnitDetailPage() {
   const [isGpsLogOpen, setIsGpsLogOpen] = useState(false);
   const [isHoursLogOpen, setIsHoursLogOpen] = useState(false);
   
-  const [activeMainTab, setActiveMainTab] = useState<'JADWAL' | 'HISTORY' | 'KOEFISIEN_SOLAR'>('JADWAL');
-  const [repairLogs, setRepairLogs] = useState<any[]>([]);
+  const [activeMainTab, setActiveMainTab] = useState<'JADWAL' | 'HISTORY_SERVICE'>('JADWAL');
+  const [serviceHistoryList, setServiceHistoryList] = useState<any[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  const fetchServiceHistory = async () => {
+    if (!id) return;
+    setIsLoadingHistory(true);
+    try {
+      const data = await aplHistoryService.findAllNoPaginate({
+        unit_id: id as string,
+        status: APLSTATUS.SERVICE,
+      });
+      setServiceHistoryList(data || []);
+    } catch (err) {
+      console.error("Gagal memuat riwayat servis:", err);
+      toast.error("Gagal memuat riwayat servis");
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  useEffect(() => {
+    if (id) {
+      fetchServiceHistory();
+    }
+  }, [id, activeMainTab]);
 
   useEffect(() => {
     if (isGpsLogOpen || isHoursLogOpen) {
@@ -106,12 +129,6 @@ export default function UnitDetailPage() {
     return () => clearTimeout(timer);
   }, [isChartModalOpen]);
 
-  useEffect(() => {
-    if (activeMainTab === 'HISTORY') {
-      const mockLogs = repairs;
-      setRepairLogs(mockLogs);
-    }
-  }, [activeMainTab, apiUnit]);
 
   useEffect(() => {
     typeUnitService.getTypeUnits()
@@ -228,14 +245,20 @@ export default function UnitDetailPage() {
   const handleNavigateAplItem = (direction: 'prev' | 'next') => {
     if (!editingAplItem || !apiUnit?.aplData) return;
     const sortedAplData = apiUnit.aplData || [];
-    const currentIndex = sortedAplData.findIndex((item: any) => item.category_apl_id === editingAplItem.category_apl_id);
-    if (currentIndex === -1) return;
+    const editableItems = sortedAplData.filter((item: any) => (item.input ?? 0) >= 50);
+    if (editableItems.length === 0) return;
+
+    const currentIndex = editableItems.findIndex((item: any) => item.category_apl_id === editingAplItem.category_apl_id);
+    if (currentIndex === -1) {
+      setEditingAplItem(editableItems[0]);
+      return;
+    }
     
     let nextIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
-    if (nextIndex < 0) nextIndex = sortedAplData.length - 1;
-    if (nextIndex >= sortedAplData.length) nextIndex = 0;
+    if (nextIndex < 0) nextIndex = editableItems.length - 1;
+    if (nextIndex >= editableItems.length) nextIndex = 0;
     
-    setEditingAplItem(sortedAplData[nextIndex]);
+    setEditingAplItem(editableItems[nextIndex]);
   };
 
   useEffect(() => {
@@ -271,7 +294,10 @@ export default function UnitDetailPage() {
         if (e.key === 'q' || e.key === 'Q') {
           e.preventDefault();
           if (apiUnit?.aplData && apiUnit.aplData.length > 0) {
-            setEditingAplItem(apiUnit.aplData[0]);
+            const firstEligible = apiUnit.aplData.find((item: any) => (item.input ?? 0) >= 50);
+            if (firstEligible) {
+              setEditingAplItem(firstEligible);
+            }
           }
         }
         if (siblingUnits.length > 0 && apiUnit?.id) {
@@ -412,8 +438,11 @@ export default function UnitDetailPage() {
     onClick: (event: any, elements: any[]) => {
       if (elements.length > 0) {
         const index = elements[0].index;
-        setEditingAplItem(sortedAplData[index]);
-        setIsChartModalOpen(false);
+        const selectedItem = sortedAplData[index];
+        if (selectedItem && (selectedItem.input ?? 0) >= 50) {
+          setEditingAplItem(selectedItem);
+          setIsChartModalOpen(false);
+        }
       }
     },
     layout: {
@@ -611,35 +640,52 @@ export default function UnitDetailPage() {
               </div>
             </div>
 
-            <div className="mt-6 rounded-3xl border border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-slate-950/80 p-6">
+            <div id="unit-tabs-section" className="mt-6 rounded-3xl border border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-slate-950/80 p-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div className="flex gap-6 border-b border-slate-200 dark:border-white/10 w-full sm:w-auto">
                   <button
                     onClick={() => setActiveMainTab('JADWAL')}
-                    className={`pb-3 text-sm font-bold transition-all border-b-2 flex items-center gap-2 ${activeMainTab === 'JADWAL' ? 'border-sky-500 text-sky-600 dark:text-sky-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                    className={`pb-3 text-sm font-bold transition-all border-b-2 flex items-center gap-2 cursor-pointer ${
+                      activeMainTab === 'JADWAL'
+                        ? 'border-sky-500 text-sky-600 dark:text-sky-400'
+                        : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                    }`}
                   >
                     <FaWrench size={16} /> MAINTENANCE
                   </button>
-                  {/* <button
-                    onClick={() => setActiveMainTab('KOEFISIEN_SOLAR')}
-                    className={`pb-3 text-sm font-bold transition-all border-b-2 flex items-center gap-2 ${activeMainTab === 'KOEFISIEN_SOLAR' ? 'border-sky-500 text-sky-600 dark:text-sky-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                  <button
+                    onClick={() => setActiveMainTab('HISTORY_SERVICE')}
+                    className={`pb-3 text-sm font-bold transition-all border-b-2 flex items-center gap-2 cursor-pointer ${
+                      activeMainTab === 'HISTORY_SERVICE'
+                        ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                        : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                    }`}
                   >
-                    <FaGasPump size={16} /> KOEFISIEN SOLAR
-                  </button> */}
-                  {/* <button
-                    onClick={() => setActiveMainTab('HISTORY')}
-                    className={`pb-3 text-sm font-bold transition-all border-b-2 flex items-center gap-2 ${activeMainTab === 'HISTORY' ? 'border-sky-500 text-sky-600 dark:text-sky-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-                  >
-                    <FaHistory size={16} /> BREAKDOWN
-                  </button> */}
+                    <FaHistory size={15} /> RIWAYAT SERVIS
+                    {serviceHistoryList.length > 0 && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300">
+                        {serviceHistoryList.length}
+                      </span>
+                    )}
+                  </button>
                 </div>
                 {activeMainTab === 'JADWAL' && (
                   <button
                     onClick={() => setIsChartModalOpen(true)}
-                    className="p-3 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 transition flex items-center justify-center text-slate-600 dark:text-slate-300"
+                    className="p-3 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 transition flex items-center justify-center text-slate-600 dark:text-slate-300 cursor-pointer"
                     title="Perbesar Grafik"
                   >
                     <FaExpandAlt />
+                  </button>
+                )}
+                {activeMainTab === 'HISTORY_SERVICE' && (
+                  <button
+                    onClick={fetchServiceHistory}
+                    className="p-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 transition flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer"
+                    title="Segarkan Riwayat"
+                  >
+                    <FaHistory size={12} className={isLoadingHistory ? "animate-spin" : ""} />
+                    <span>Segarkan</span>
                   </button>
                 )}
               </div>
@@ -649,84 +695,156 @@ export default function UnitDetailPage() {
                     <DetailUnitChart chartData={chartData} chartOptions={chartOptions} />
                   </div>
                 ) : (
-                  <div className="flex-1 space-y-4">
-                    {activeMainTab === 'KOEFISIEN_SOLAR' ? (
-                      <div className="space-y-4 animate-fade-in">
-                        <div className="grid grid-cols-2 gap-4 mb-4">
-                           <div className="bg-sky-50 dark:bg-sky-900/20 p-5 rounded-2xl border border-sky-100 dark:border-sky-900/30">
-                             <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-1 uppercase tracking-wider">Rata-rata Konsumsi</p>
-                             <p className="text-3xl font-extrabold text-sky-600 dark:text-sky-400">12.5 <span className="text-sm font-medium text-slate-500">L/Jam</span></p>
-                           </div>
-                           <div className="bg-emerald-50 dark:bg-emerald-900/20 p-5 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
-                             <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-1 uppercase tracking-wider">Total Pengisian (Bulan Ini)</p>
-                             <p className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">1,250 <span className="text-sm font-medium text-slate-500">Liter</span></p>
-                           </div>
-                        </div>
-                        
-                        <div className="bg-white dark:bg-slate-900/40 rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden">
-                           <table className="w-full text-left text-sm">
-                             <thead className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400">
-                               <tr>
-                                 <th className="py-4 px-5 font-semibold text-xs uppercase tracking-wider">Tanggal</th>
-                                 <th className="py-4 px-5 font-semibold text-xs uppercase tracking-wider">HM Akhir</th>
-                                 <th className="py-4 px-5 font-semibold text-xs uppercase tracking-wider">Volume (L)</th>
-                                 <th className="py-4 px-5 font-semibold text-xs uppercase tracking-wider">Koefisien</th>
-                               </tr>
-                             </thead>
-                             <tbody className="divide-y divide-slate-100 dark:divide-white/5 text-slate-700 dark:text-slate-300">
-                               <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                                 <td className="py-4 px-5">20 Agustus 2026</td>
-                                 <td className="py-4 px-5 font-medium">10,050</td>
-                                 <td className="py-4 px-5 font-bold text-emerald-600 dark:text-emerald-400">+200</td>
-                                 <td className="py-4 px-5 font-bold">12.4</td>
-                               </tr>
-                               <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                                 <td className="py-4 px-5">18 Agustus 2026</td>
-                                 <td className="py-4 px-5 font-medium">10,034</td>
-                                 <td className="py-4 px-5 font-bold text-emerald-600 dark:text-emerald-400">+200</td>
-                                 <td className="py-4 px-5 font-bold text-amber-500">13.2</td>
-                               </tr>
-                               <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                                 <td className="py-4 px-5">15 Agustus 2026</td>
-                                 <td className="py-4 px-5 font-medium">10,019</td>
-                                 <td className="py-4 px-5 font-bold text-emerald-600 dark:text-emerald-400">+150</td>
-                                 <td className="py-4 px-5 font-bold text-rose-500">14.1</td>
-                               </tr>
-                             </tbody>
-                           </table>
-                        </div>
+                  <div className="space-y-4 animate-in fade-in duration-200">
+                    {isLoadingHistory ? (
+                      <div className="flex flex-col items-center justify-center py-16 gap-3">
+                        <div className="h-9 w-9 animate-spin rounded-full border-4 border-slate-200 border-t-emerald-500 dark:border-white/10 dark:border-t-emerald-500" />
+                        <p className="text-xs font-semibold text-slate-400">Memuat riwayat servis unit...</p>
                       </div>
-                    ) : repairLogs.length === 0 ? (
-                      <div className="text-center text-slate-400 py-12 bg-white dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
-                        Belum ada riwayat perbaikan.
+                    ) : serviceHistoryList.length === 0 ? (
+                      <div className="text-center py-16 bg-white dark:bg-slate-900/40 rounded-3xl border border-dashed border-slate-300 dark:border-white/10">
+                        <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800/80 flex items-center justify-center mx-auto mb-3 text-slate-400">
+                          <FaHistory size={24} />
+                        </div>
+                        <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300">Belum Ada Riwayat Servis</h4>
+                        <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                          Riwayat servis akan otomatis tercatat saat konfirmasi servis komponen dilakukan.
+                        </p>
                       </div>
                     ) : (
-                      <>
-                      {repairLogs.map((log, index) => (
-                        <div key={index} className="p-5 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5">
-                          <div className="flex justify-between items-center mb-4 border-b border-slate-200 dark:border-white/10 pb-4">
-                            <span className="text-sm font-normal text-slate-400">{log.date}</span>
-                            <Badge tone={log.status === "Selesai" ? "success" : "warning"}>{log.status}</Badge>
-                          </div>
-                          <div className="grid sm:grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                              <span className="text-xs font-semibold text-slate-400">KODE WO</span>
-                              <p className="font-bold text-slate-900 dark:text-white">{log.code}</p>
+                      <div className="space-y-4">
+                        {serviceHistoryList.map((history, idx) => {
+                          let validImages: string[] = [];
+                          try {
+                            if (Array.isArray(history.images)) {
+                              validImages = history.images.filter(
+                                (img: any) =>
+                                  typeof img === "string" &&
+                                  img.trim() !== "" &&
+                                  img !== "null" &&
+                                  img !== "undefined" &&
+                                  !img.includes("undefined") &&
+                                  !img.includes("null")
+                              );
+                            }
+                          } catch (e) {}
+
+                          const compName = sortedAplData.find(
+                            (a: any) => a.id === history.apl_id || a.category_apl_id === history.apl_id
+                          )?.name || "Komponen Servis";
+                          const serviceDateTime = history.last_time || history.created_at;
+
+                          return (
+                            <div
+                              key={idx}
+                              className="p-5 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200/80 dark:border-white/10 shadow-sm hover:shadow-md transition"
+                            >
+                              {/* Top Bar: Component + Status + Date */}
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-white/5">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                                    <FaWrench size={14} />
+                                  </div>
+                                  <div>
+                                    <h4 className="text-sm font-black text-slate-900 dark:text-white">
+                                      {compName}
+                                    </h4>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      <span className="px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-[10px] font-extrabold uppercase tracking-wider">
+                                        {history.status || "SERVICE"}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-4 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                  <span className="flex items-center gap-1.5">
+                                    <FaCalendarAlt size={12} className="text-slate-400" />
+                                    {serviceDateTime
+                                      ? new Date(serviceDateTime).toLocaleDateString("id-ID", {
+                                          day: "numeric",
+                                          month: "long",
+                                          year: "numeric",
+                                        })
+                                      : "-"}
+                                  </span>
+                                  <span className="flex items-center gap-1.5">
+                                    <FaClock size={12} className="text-slate-400" />
+                                    {serviceDateTime
+                                      ? new Date(serviceDateTime).toLocaleTimeString("id-ID", {
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                        })
+                                      : "-"}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Stat Cards 3 Kolom */}
+                              <div className="grid grid-cols-3 gap-3 my-4">
+                                <div className="p-3 rounded-xl bg-sky-50/80 dark:bg-sky-950/30 border border-sky-100 dark:border-sky-500/20 text-center">
+                                  <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 uppercase tracking-wider block mb-0.5">
+                                    Input Manual Baru
+                                  </span>
+                                  <span className="text-lg font-black text-sky-800 dark:text-sky-200">
+                                    {history.last_total ?? history.input_total ?? "-"}
+                                  </span>
+                                </div>
+
+                                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-white/5 text-center">
+                                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-0.5">
+                                    HM Terakhir Servis
+                                  </span>
+                                  <span className="text-lg font-black text-slate-800 dark:text-slate-100">
+                                    {history.last_hm ?? "-"}
+                                  </span>
+                                </div>
+
+                                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-white/5 text-center">
+                                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-0.5">
+                                    Sisa Jam Saat Servis
+                                  </span>
+                                  <span className="text-lg font-black text-slate-800 dark:text-slate-100">
+                                    {history.remaining_hours ?? "-"}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Foto Bukti Grid */}
+                              {validImages.length > 0 && (
+                                <div className="pt-3 border-t border-slate-100 dark:border-white/5">
+                                  <p className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-1.5">
+                                    <FaImage size={12} className="text-sky-500" />
+                                    <span>Foto Bukti Servis ({validImages.length})</span>
+                                  </p>
+                                  <div className="flex flex-wrap gap-2.5">
+                                    {validImages.map((img: string, imgIdx: number) => (
+                                      <div
+                                        key={imgIdx}
+                                        onClick={() => setPreviewImageUrl(img)}
+                                        className="w-20 h-20 rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 shrink-0 cursor-pointer group relative shadow-2xs"
+                                        title="Klik untuk melihat foto lebih besar"
+                                      >
+                                        <img
+                                          src={img}
+                                          alt={`Bukti Servis ${imgIdx + 1}`}
+                                          className="w-full h-full object-cover transition duration-300 group-hover:scale-110"
+                                        />
+                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition duration-300 flex items-center justify-center">
+                                          <FaSearchPlus
+                                            className="text-white opacity-0 group-hover:opacity-100 drop-shadow-md"
+                                            size={16}
+                                          />
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                            <div className="space-y-1">
-                              <span className="text-xs font-semibold text-slate-400">PRIORITAS</span>
-                              <p className={`font-bold ${log.priority === 'Tinggi' ? 'text-rose-500' : 'text-amber-500'}`}>{log.priority}</p>
-                            </div>
-                            <div className="sm:col-span-2 pt-2">
-                              <span className="text-xs font-semibold text-slate-400 block mb-2">KETERANGAN</span>
-                              <p className="text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-white/5 leading-relaxed">
-                                {log.description}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                      </>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
                 )}

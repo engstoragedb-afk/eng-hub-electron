@@ -190,14 +190,22 @@ export function StatusUnitChart({ units: propUnits }: { units?: any[] }) {
     let normal = 0;
 
     activeUnits.forEach((unit: any) => {
+      const rawHours = unit.hours !== undefined && unit.hours !== null ? unit.hours : unit.hm;
+      const hoursNum = parseFloat(String(rawHours ?? 0).replace(/[^\d.-]/g, ''));
+      const isZeroHours = isNaN(hoursNum) || hoursNum <= 0;
+      if (isZeroHours) {
+        normal++;
+        return;
+      }
+
       const aplItems = unit.aplData || [];
       let unitLevel = 'NORMAL';
 
-      if (aplItems.some((i: any) => (i.input ?? 0) < 0)) {
+      if (aplItems.some((i: any) => (i.vault ?? 0) > 0 && (i.input ?? 0) < 0)) {
         unitLevel = 'CRITICAL';
-      } else if (aplItems.some((i: any) => (i.input ?? 0) <= 10)) {
+      } else if (aplItems.some((i: any) => (i.vault ?? 0) > 0 && (i.input ?? 0) > 0 && (i.input ?? 0) <= 10)) {
         unitLevel = 'URGENT';
-      } else if (aplItems.some((i: any) => (i.input ?? 0) < 50)) {
+      } else if (aplItems.some((i: any) => (i.vault ?? 0) > 0 && (i.input ?? 0) > 10 && (i.input ?? 0) < 50)) {
         unitLevel = 'ATTENTION';
       }
 

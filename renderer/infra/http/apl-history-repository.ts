@@ -1,5 +1,5 @@
 import { IAplHistoryRepository } from "@/domain/repositories/apl-history-repository";
-import { AplHistory, IAplHistory } from "@/domain/models/apl-history";
+import { AplHistory, IAplHistory, IAplHistoryCreate, IAplHistoryQueryParams } from "@/domain/models/apl-history";
 import { Repository } from "@/infra/http/repository";
 
 export class AplHistoryRepository extends Repository<IAplHistory> implements IAplHistoryRepository {
@@ -16,12 +16,12 @@ export class AplHistoryRepository extends Repository<IAplHistory> implements IAp
         return AplHistoryRepository.instance;
     }
 
-    async findAllNoPaginate(query: { apl_id: string }): Promise<IAplHistory[]> {
+    async findAllNoPaginate(query?: IAplHistoryQueryParams): Promise<IAplHistory[]> {
         const { data } = await this.restApi.axios.get(`${this.baseUrl}/all`, { params: query });
         return data.data.map((item: any) => AplHistory.create(item).unmarshall());
     }
 
-    async createHistory(data: any): Promise<IAplHistory> {
+    async createHistory(data: IAplHistoryCreate | any): Promise<IAplHistory> {
         const response = await this.restApi.axios.post(this.baseUrl, data);
         return AplHistory.create(response.data.data).unmarshall();
     }
