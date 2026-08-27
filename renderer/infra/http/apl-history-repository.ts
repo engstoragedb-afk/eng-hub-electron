@@ -1,5 +1,5 @@
 import { IAplHistoryRepository } from "@/domain/repositories/apl-history-repository";
-import { AplHistory, IAplHistory, IAplHistoryCreate, IAplHistoryQueryParams } from "@/domain/models/apl-history";
+import { AplHistory, IAplHistory, IAplHistoryCreate, IAplHistoryQueryParams, IAplHistoryUpdatePayload } from "@/domain/models/apl-history";
 import { Repository } from "@/infra/http/repository";
 
 export class AplHistoryRepository extends Repository<IAplHistory> implements IAplHistoryRepository {
@@ -23,6 +23,11 @@ export class AplHistoryRepository extends Repository<IAplHistory> implements IAp
 
     async createHistory(data: IAplHistoryCreate | any): Promise<IAplHistory> {
         const response = await this.restApi.axios.post(this.baseUrl, data);
+        return AplHistory.create(response.data.data).unmarshall();
+    }
+
+    async updateHistory(id: string, data: IAplHistoryUpdatePayload): Promise<IAplHistory> {
+        const response = await this.restApi.axios.patch(`${this.baseUrl}/${id}`, data);
         return AplHistory.create(response.data.data).unmarshall();
     }
 }

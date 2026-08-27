@@ -59,6 +59,10 @@ export class UnitRepository extends Repository<IUnit> implements IUnitRepository
         return Unit.create(res.data.data || res.data).unmarshall();
     }
 
+    async deleteUnit(id: string): Promise<void> {
+        await this.restApi.axios.delete(`${this.baseUrl}/${id}`);
+    }
+
     async uploadHoursFromExcel(file: File): Promise<any[]> {
         const formData = new FormData();
         formData.append('file', file);

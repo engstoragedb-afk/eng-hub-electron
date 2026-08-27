@@ -564,7 +564,7 @@ export default function PeringatanServisPage() {
                               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white text-[11px] font-bold shadow-xs shadow-emerald-500/20 transition cursor-pointer"
                             >
                               <FaCheckCircle size={11} />
-                              <span>SUDAH DI SERVICE</span>
+                              <span>SUDAH DI GANTI</span>
                             </button>
                           )}
                         </div>

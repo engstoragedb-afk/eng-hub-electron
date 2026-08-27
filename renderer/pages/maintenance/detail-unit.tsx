@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
-import { FaArrowLeft, FaExpandAlt, FaTimes, FaSearchPlus, FaCrop, FaImage, FaCheckCircle, FaWrench, FaMapMarkerAlt, FaWifi, FaExclamationTriangle, FaEyeSlash, FaHistory, FaCalendarAlt, FaClock } from "react-icons/fa";
+import { FaArrowLeft, FaExpandAlt, FaTimes, FaSearchPlus, FaCrop, FaImage, FaCheckCircle, FaWrench, FaMapMarkerAlt, FaWifi, FaExclamationTriangle, FaEyeSlash, FaHistory, FaCalendarAlt, FaClock, FaTrash, FaEdit } from "react-icons/fa";
 import toast from "react-hot-toast";
 import { EGPSStatus, APLSTATUS } from "@/common/utils/status";
 
@@ -15,6 +15,7 @@ import { unitService, typeUnitService, locationService, aplHistoryService } from
 import GpsLogDrawer from "@/components/organisms/GpsLogDrawer";
 import HoursLogDrawer from "@/components/organisms/HoursLogDrawer";
 import AplEditFormModal from "@/components/organisms/AplEditFormModal";
+import EditServiceHistoryModal from "@/components/organisms/EditServiceHistoryModal";
 
 const DetailUnitChart = dynamic(() => import("@/components/organisms/DetailUnitChart"), { 
   ssr: false, 
@@ -50,9 +51,27 @@ export default function UnitDetailPage() {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isDeletingUnit, setIsDeletingUnit] = useState(false);
+  const [editingHistoryItem, setEditingHistoryItem] = useState<any | null>(null);
+
+  const handleDeleteUnit = async () => {
+    if (!id) return;
+    setIsDeletingUnit(true);
+    try {
+      await unitService.deleteUnit(id as string);
+      toast.success(`Unit ${unit?.code || ""} berhasil dihapus!`);
+      setIsDeleteConfirmOpen(false);
+      router.push("/maintenance/unit");
+    } catch (err: any) {
+      console.error("Gagal menghapus unit:", err);
+      toast.error(err?.response?.data?.message || err?.message || "Gagal menghapus unit.");
+      setIsDeletingUnit(false);
+    }
+  };
 
   useEffect(() => {
-    const isAnyModalOpen = !!(isChartModalOpen || editingAplItem || isCropModalOpen || isLightboxOpen);
+    const isAnyModalOpen = !!(isChartModalOpen || editingAplItem || isCropModalOpen || isLightboxOpen || isDeleteConfirmOpen || editingHistoryItem);
     if (isAnyModalOpen) {
       const scrollY = window.scrollY;
       document.body.style.position = 'fixed';
@@ -602,6 +621,7 @@ export default function UnitDetailPage() {
                         </Badge>
                       )}
                     </div>
+
                     {unit.gpsVendor && (
                       <Badge tone={getGpsStatusColor(unit.gpsStatus)}>
                         {getGpsStatusIcon(unit.gpsStatus)}
@@ -757,26 +777,37 @@ export default function UnitDetailPage() {
                                   </div>
                                 </div>
 
-                                <div className="flex items-center gap-4 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                                  <span className="flex items-center gap-1.5">
-                                    <FaCalendarAlt size={12} className="text-slate-400" />
-                                    {serviceDateTime
-                                      ? new Date(serviceDateTime).toLocaleDateString("id-ID", {
-                                          day: "numeric",
-                                          month: "long",
-                                          year: "numeric",
-                                        })
-                                      : "-"}
-                                  </span>
-                                  <span className="flex items-center gap-1.5">
-                                    <FaClock size={12} className="text-slate-400" />
-                                    {serviceDateTime
-                                      ? new Date(serviceDateTime).toLocaleTimeString("id-ID", {
-                                          hour: "2-digit",
-                                          minute: "2-digit",
-                                        })
-                                      : "-"}
-                                  </span>
+                                <div className="flex items-center gap-3">
+                                  <div className="flex items-center gap-4 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                    <span className="flex items-center gap-1.5">
+                                      <FaCalendarAlt size={12} className="text-slate-400" />
+                                      {serviceDateTime
+                                        ? new Date(serviceDateTime).toLocaleDateString("id-ID", {
+                                            day: "numeric",
+                                            month: "long",
+                                            year: "numeric",
+                                          })
+                                        : "-"}
+                                    </span>
+                                    <span className="flex items-center gap-1.5">
+                                      <FaClock size={12} className="text-slate-400" />
+                                      {serviceDateTime
+                                        ? new Date(serviceDateTime).toLocaleTimeString("id-ID", {
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                          })
+                                        : "-"}
+                                    </span>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingHistoryItem(history)}
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-950/40 dark:hover:text-sky-400 transition cursor-pointer"
+                                    title="Edit Riwayat Servis"
+                                  >
+                                    <FaEdit size={13} />
+                                  </button>
                                 </div>
                               </div>
 
@@ -1026,6 +1057,17 @@ export default function UnitDetailPage() {
                     {unit.service === "NORMAL" || unit.service === "Normal" ? "NORMAL" : `PS ${unit.service} H`}
                   </span>
                 </div>
+                <div className="pt-3 mt-3 border-t border-slate-300 dark:border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setIsDeleteConfirmOpen(true)}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-950/50 border border-rose-200 dark:border-rose-900/30 transition cursor-pointer active:scale-98"
+                    title="Hapus Unit Ini"
+                  >
+                    <FaTrash size={11} />
+                    <span>Hapus Unit</span>
+                  </button>
+                </div>
               </div>
             </div>
             <div className="rounded-3xl border border-slate-300 dark:border-white/10 bg-slate-200/50 dark:bg-white/5 p-5">
@@ -1207,6 +1249,73 @@ export default function UnitDetailPage() {
         unitId={apiUnit?.id} 
         unitCode={apiUnit?.code}
       />
+
+      {/* Delete Unit Confirmation Modal */}
+      {isDeleteConfirmOpen && (
+        <div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 shadow-2xl p-6 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                <FaExclamationTriangle size={22} />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base font-black text-slate-900 dark:text-white">
+                  Hapus Unit {unit.code}?
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
+                  Apakah Anda yakin ingin menghapus unit <strong className="text-slate-800 dark:text-slate-200">{unit.code}</strong>? Tindakan ini akan menghapus seluruh data maintenance, log perbaikan, dan riwayat servis terkait unit ini secara permanen.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end items-center gap-2.5 pt-4 border-t border-slate-100 dark:border-white/5">
+              <button
+                type="button"
+                disabled={isDeletingUnit}
+                onClick={() => setIsDeleteConfirmOpen(false)}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingUnit}
+                onClick={handleDeleteUnit}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-xs font-bold text-white shadow-md shadow-rose-600/20 transition cursor-pointer disabled:opacity-50"
+              >
+                {isDeletingUnit ? (
+                  <>
+                    <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    <span>Menghapus...</span>
+                  </>
+                ) : (
+                  <>
+                    <FaTrash size={12} />
+                    <span>Ya, Hapus Unit</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Service History Modal */}
+      {editingHistoryItem && (
+        <EditServiceHistoryModal
+          isOpen={!!editingHistoryItem}
+          onClose={() => setEditingHistoryItem(null)}
+          history={editingHistoryItem}
+          componentName={
+            sortedAplData.find(
+              (a: any) =>
+                a.id === editingHistoryItem.apl_id ||
+                a.category_apl_id === editingHistoryItem.apl_id
+            )?.name || "Komponen Servis"
+          }
+          onSuccess={fetchServiceHistory}
+        />
+      )}
 
     </React.Fragment>
   );

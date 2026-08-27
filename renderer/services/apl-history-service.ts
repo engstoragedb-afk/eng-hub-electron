@@ -1,7 +1,7 @@
 import { IAplHistoryService } from "@/domain/services/apl-history-service";
 import { IAplHistoryRepository } from "@/domain/repositories/apl-history-repository";
 import { aplHistoryRepository } from "@/infra/http/apl-history-repository";
-import { IAplHistory, IAplHistoryCreate, IAplHistoryQueryParams } from "@/domain/models/apl-history";
+import { IAplHistory, IAplHistoryCreate, IAplHistoryQueryParams, IAplHistoryUpdatePayload } from "@/domain/models/apl-history";
 import { Service } from "@/services/service";
 
 export class AplHistoryService extends Service<IAplHistory, IAplHistoryRepository> implements IAplHistoryService {
@@ -24,6 +24,10 @@ export class AplHistoryService extends Service<IAplHistory, IAplHistoryRepositor
 
     async createHistory(data: IAplHistoryCreate | any): Promise<IAplHistory> {
         return this.repository.createHistory(data);
+    }
+
+    async updateHistory(id: string, data: IAplHistoryUpdatePayload): Promise<IAplHistory> {
+        return this.repository.updateHistory(id, data);
     }
 }
 

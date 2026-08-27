@@ -1,69 +1,75 @@
 import React, { useState, useRef, useEffect } from "react";
-import { FaTimes, FaCheckCircle, FaImage, FaTrash, FaUpload, FaCalendarAlt, FaClock, FaInfoCircle } from "react-icons/fa";
-import { aplUnitService, aplHistoryService } from "@/services";
-import { APLSTATUS } from "@/common/utils/status";
+import { FaTimes, FaSave, FaImage, FaTrash, FaUpload, FaCalendarAlt, FaClock, FaInfoCircle, FaWrench } from "react-icons/fa";
+import { aplHistoryService } from "@/services";
 import toast from "react-hot-toast";
 
-type CompleteServiceModalProps = {
+type EditServiceHistoryModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  item: any;
-  unit: any;
+  history: any;
+  componentName: string;
   onSuccess: () => void;
 };
 
-export default function CompleteServiceModal({
+export default function EditServiceHistoryModal({
   isOpen,
   onClose,
-  item,
-  unit,
+  history,
+  componentName,
   onSuccess
-}: CompleteServiceModalProps) {
-  const [newTotal, setNewTotal] = useState<number | string>(
-    item?.total !== undefined ? item.total : (unit?.hours || unit?.hm || 0)
-  );
-
-  // Default to current date in Indonesia (Asia/Jakarta) YYYY-MM-DD
-  const [serviceDate, setServiceDate] = useState<string>(() => {
-    try {
-      const formatter = new Intl.DateTimeFormat("en-CA", {
-        timeZone: "Asia/Jakarta",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit"
-      });
-      return formatter.format(new Date());
-    } catch {
-      const today = new Date();
-      const yyyy = today.getFullYear();
-      const mm = String(today.getMonth() + 1).padStart(2, "0");
-      const dd = String(today.getDate()).padStart(2, "0");
-      return `${yyyy}-${mm}-${dd}`;
-    }
-  });
-
-  // Default to current time in Indonesia (Asia/Jakarta - WIB) HH:mm
-  const [serviceTime, setServiceTime] = useState<string>(() => {
-    try {
-      const formatter = new Intl.DateTimeFormat("id-ID", {
-        timeZone: "Asia/Jakarta",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false
-      });
-      return formatter.format(new Date()).replace(".", ":");
-    } catch {
-      const now = new Date();
-      const hh = String(now.getHours()).padStart(2, "0");
-      const min = String(now.getMinutes()).padStart(2, "0");
-      return `${hh}:${min}`;
-    }
-  });
-
+}: EditServiceHistoryModalProps) {
+  const [serviceDate, setServiceDate] = useState<string>("");
+  const [serviceTime, setServiceTime] = useState<string>("");
   const [images, setImages] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Initialize form state when history item changes or modal opens
+  useEffect(() => {
+    if (!isOpen || !history) return;
+
+    const rawDate = history.last_time || history.created_at;
+    if (rawDate) {
+      try {
+        const d = new Date(rawDate);
+        if (!isNaN(d.getTime())) {
+          const formatterDate = new Intl.DateTimeFormat("en-CA", {
+            timeZone: "Asia/Jakarta",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit"
+          });
+          setServiceDate(formatterDate.format(d));
+
+          const formatterTime = new Intl.DateTimeFormat("id-ID", {
+            timeZone: "Asia/Jakarta",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false
+          });
+          setServiceTime(formatterTime.format(d).replace(".", ":"));
+        }
+      } catch (e) {
+        console.error("Error formatting date:", e);
+      }
+    }
+
+    if (Array.isArray(history.images)) {
+      const validImages = history.images.filter(
+        (img: any) =>
+          typeof img === "string" &&
+          img.trim() !== "" &&
+          img !== "null" &&
+          img !== "undefined" &&
+          !img.includes("undefined") &&
+          !img.includes("null")
+      );
+      setImages(validImages);
+    } else {
+      setImages([]);
+    }
+  }, [isOpen, history]);
 
   const processImageFiles = (files: File[]) => {
     const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
@@ -115,7 +121,7 @@ export default function CompleteServiceModal({
     return () => window.removeEventListener("paste", handlePaste);
   }, [isOpen]);
 
-  if (!isOpen || !item || !unit) return null;
+  if (!isOpen || !history) return null;
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -148,48 +154,31 @@ export default function CompleteServiceModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newTotal === "" || isNaN(Number(newTotal))) {
-      toast.error("Mohon isi nilai input manual baru yang valid.");
+    if (!serviceDate) {
+      toast.error("Mohon pilih tanggal servis yang valid.");
       return;
     }
 
     if (images.length === 0) {
-      toast.error("Wajib mengunggah minimal 1 foto bukti servis / penggantian.");
+      toast.error("Wajib mengunggah minimal 1 foto bukti servis.");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // 1. Update APL unit with new manual total (vault remains the same)
-      const updatedAplUnit = await aplUnitService.upsertAplUnit({
-        unit_id: unit.id,
-        category_apl_id: item.category_apl_id,
-        total: Number(newTotal),
-        vault: item.vault
+      const fullDateTime = new Date(`${serviceDate}T${serviceTime || "00:00"}:00`);
+
+      await aplHistoryService.updateHistory(history.id, {
+        last_time: isNaN(fullDateTime.getTime()) ? new Date() : fullDateTime,
+        images: images
       });
 
-      // 2. Record history of service completion with APLSTATUS.SERVICE
-      try {
-        const fullDateTime = new Date(`${serviceDate}T${serviceTime || "00:00"}:00`);
-        await aplHistoryService.createHistory({
-          apl_id: updatedAplUnit?.id || item.id || item.category_apl_id,
-          remaining_hours: Number(item.input ?? 0),
-          last_hm: Number(unit.hours ?? unit.hm ?? 0),
-          last_total: Number(newTotal),
-          last_time: isNaN(fullDateTime.getTime()) ? new Date() : fullDateTime,
-          status: APLSTATUS.SERVICE,
-          images: images.length > 0 ? images : []
-        });
-      } catch (historyErr) {
-        console.log("Service history record:", historyErr);
-      }
-
-      toast.success(`Servis untuk ${item.name} berhasil disimpan!`);
+      toast.success(`Riwayat servis ${componentName} berhasil diperbarui!`);
       onSuccess();
       onClose();
     } catch (err: any) {
-      console.error("Failed to complete service:", err);
-      toast.error(err?.response?.data?.message || err?.message || "Gagal menyimpan data servis.");
+      console.error("Failed to update service history:", err);
+      toast.error(err?.response?.data?.message || err?.message || "Gagal memperbarui riwayat servis.");
     } finally {
       setIsSubmitting(false);
     }
@@ -198,81 +187,59 @@ export default function CompleteServiceModal({
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 p-4 overflow-y-auto">
       <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden flex flex-col my-8 animate-in fade-in zoom-in-95 duration-200">
-        
-        {/* Modal Header */}
-        <div className="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between bg-emerald-50/60 dark:bg-emerald-500/10">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-slate-800/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-xs shrink-0">
-              <FaCheckCircle size={20} />
+            <div className="w-9 h-9 rounded-xl bg-sky-100 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center">
+              <FaWrench size={16} />
             </div>
             <div>
-              <h3 className="text-lg font-black text-slate-900 dark:text-white">
-                Konfirmasi Sudah Di Servis
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                Edit Riwayat Servis
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                Unit: <strong className="text-slate-800 dark:text-slate-200">{unit.unit_name || unit.code}</strong> • Komponen: <strong className="text-emerald-700 dark:text-emerald-400">{item.name}</strong>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {componentName}
               </p>
             </div>
           </div>
           <button
-            type="button"
             onClick={onClose}
-            className="p-2 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition cursor-pointer"
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
           >
             <FaTimes size={16} />
           </button>
         </div>
 
-        {/* Modal Form Content */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
-          
-          {/* Read-Only Last Recorded Values (Aligned & Symmetric Stat Cards) */}
+        {/* Content Form */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          {/* Read-Only Values for Context */}
           <div className="grid grid-cols-3 gap-2.5 p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-white/5">
             <div className="flex flex-col items-center justify-center py-2.5 px-2 rounded-xl bg-white dark:bg-slate-900/80 border border-slate-200/60 dark:border-white/5 shadow-2xs text-center">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 truncate w-full">
-                Manual Terakhir
+                Manual Baru
               </span>
               <span className="text-sm font-black text-slate-800 dark:text-slate-100 mt-0.5">
-                {item.total !== undefined && item.total !== null ? `${item.total}` : "-"}
+                {history.last_total ?? history.input_total ?? "-"}
               </span>
             </div>
 
             <div className="flex flex-col items-center justify-center py-2.5 px-2 rounded-xl bg-white dark:bg-slate-900/80 border border-slate-200/60 dark:border-white/5 shadow-2xs text-center">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 truncate w-full">
-                HM Terakhir
+                HM Servis
               </span>
               <span className="text-sm font-black text-slate-800 dark:text-slate-100 mt-0.5">
-                {unit.hours !== undefined && unit.hours !== null ? `${unit.hours}` : "-"}
+                {history.last_hm ?? "-"}
               </span>
             </div>
 
             <div className="flex flex-col items-center justify-center py-2.5 px-2 rounded-xl bg-white dark:bg-slate-900/80 border border-slate-200/60 dark:border-white/5 shadow-2xs text-center">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 truncate w-full">
-                Sisa Jam Terakhir
+                Sisa Jam
               </span>
               <span className="text-sm font-black text-slate-800 dark:text-slate-100 mt-0.5">
-                {item.input !== undefined && item.input !== null ? `${item.input}` : "-"}
+                {history.remaining_hours ?? "-"}
               </span>
             </div>
-          </div>
-
-          {/* New Manual Input (Editable) */}
-          <div>
-            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-              Input Manual Baru <span className="text-rose-500">*</span>
-            </label>
-            <input
-              type="number"
-              required
-              autoFocus
-              value={newTotal}
-              onChange={(e) => setNewTotal(e.target.value === "" ? "" : Number(e.target.value))}
-              placeholder="Masukkan nilai input manual baru..."
-              className="w-full rounded-xl border border-sky-500 focus:border-sky-600 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm font-bold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-sky-500/20 transition"
-            />
-            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-              Nilai jam baru saat penggantian/servis komponen dilakukan.
-            </p>
           </div>
 
           {/* Date & Time Row */}
@@ -344,54 +311,48 @@ export default function CompleteServiceModal({
               <div className="flex flex-col items-center gap-1.5 text-slate-500 dark:text-slate-400 group-hover:text-sky-500">
                 <FaUpload size={18} className={isDragging ? "text-sky-500 animate-bounce" : ""} />
                 <p className="text-xs font-semibold">
-                  Klik untuk unggah, drop file, atau tekan <kbd className="px-1.5 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-[10px] font-mono text-slate-700 dark:text-slate-200">Ctrl+V</kbd> / <kbd className="px-1.5 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-[10px] font-mono text-slate-700 dark:text-slate-200">⌘V</kbd> untuk paste foto
+                  Klik untuk pilih file, drag & drop, atau <span className="font-bold text-sky-600 dark:text-sky-400">Paste (Ctrl+V / ⌘V)</span>
                 </p>
-                <p className="text-[10px] text-slate-400">
-                  Format JPG, PNG, WEBP (Bisa multi foto)
-                </p>
+                <p className="text-[10px] text-slate-400">JPEG, JPG, PNG, WEBP</p>
               </div>
             </div>
 
-            {/* Previews Grid */}
+            {/* Note Peringatan */}
+            <div className="mt-2.5 flex items-start gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs">
+              <FaInfoCircle size={14} className="mt-0.5 shrink-0 text-amber-500" />
+              <p className="text-[11px] leading-relaxed">
+                <strong>Catatan:</strong> Gambar harus jelas dan menunjukan komponen yang diganti, sistem otomatis akan menolak jika tidak terdeteksi.
+              </p>
+            </div>
+
+            {/* Thumbnail Preview Grid */}
             {images.length > 0 && (
-              <div className="grid grid-cols-4 gap-2.5 mt-3">
-                {images.map((imgUrl, idx) => (
+              <div className="mt-3 flex flex-wrap gap-2.5">
+                {images.map((img, idx) => (
                   <div
                     key={idx}
-                    className="relative group rounded-xl overflow-hidden aspect-square border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-slate-800"
+                    className="relative w-20 h-20 rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 group shadow-2xs"
                   >
-                    <img
-                      src={imgUrl}
-                      alt={`Bukti ${idx + 1}`}
-                      className="w-full h-full object-cover"
-                    />
+                    <img src={img} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" />
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleRemoveImage(idx);
                       }}
-                      className="absolute top-1 right-1 p-1 rounded-full bg-rose-500 text-white opacity-90 hover:opacity-100 hover:bg-rose-600 transition shadow-xs cursor-pointer"
-                      title="Hapus foto"
+                      className="absolute top-1 right-1 p-1 rounded-full bg-rose-500 hover:bg-rose-600 text-white shadow-md transition opacity-90 hover:opacity-100 cursor-pointer"
+                      title="Hapus gambar"
                     >
-                      <FaTrash size={9} />
+                      <FaTrash size={10} />
                     </button>
                   </div>
                 ))}
               </div>
             )}
-
-            {/* Info Peringatan Gambar */}
-            <div className="mt-3 flex items-start gap-2.5 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-900 dark:text-amber-300 text-xs leading-relaxed">
-              <FaInfoCircle size={15} className="text-amber-500 shrink-0 mt-0.5" />
-              <span>
-                <strong>Catatan:</strong> Gambar harus jelas dan menunjukan komponen yang diganti, sistem otomatis akan menolak jika tidak terdeteksi.
-              </span>
-            </div>
           </div>
 
-          {/* Action Footer */}
-          <div className="pt-4 border-t border-slate-200 dark:border-white/10 flex justify-end items-center gap-2.5">
+          {/* Action Buttons */}
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-white/10">
             <button
               type="button"
               disabled={isSubmitting}
@@ -403,7 +364,7 @@ export default function CompleteServiceModal({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-xs font-bold text-white shadow-md shadow-emerald-500/20 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 active:scale-95 text-xs font-bold text-white shadow-md shadow-sky-600/20 transition cursor-pointer disabled:opacity-50"
             >
               {isSubmitting ? (
                 <>
@@ -412,8 +373,8 @@ export default function CompleteServiceModal({
                 </>
               ) : (
                 <>
-                  <FaCheckCircle size={13} />
-                  <span>Simpan Servis Selesai</span>
+                  <FaSave size={13} />
+                  <span>Simpan Perubahan</span>
                 </>
               )}
             </button>
