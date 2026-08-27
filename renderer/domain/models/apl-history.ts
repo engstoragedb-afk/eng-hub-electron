@@ -29,6 +29,7 @@ export interface IAplHistoryQueryParams {
 export interface IAplHistoryUpdatePayload {
     last_time?: Date | string;
     images?: string[];
+    status?: string;
 }
 
 export class AplHistory extends Entity<IAplHistory, IAplHistoryCreate> {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
-import { FaArrowLeft, FaExpandAlt, FaTimes, FaSearchPlus, FaCrop, FaImage, FaCheckCircle, FaWrench, FaMapMarkerAlt, FaWifi, FaExclamationTriangle, FaEyeSlash, FaHistory, FaCalendarAlt, FaClock, FaTrash, FaEdit } from "react-icons/fa";
+import { FaArrowLeft, FaExpandAlt, FaTimes, FaSearchPlus, FaCrop, FaImage, FaCheckCircle, FaWrench, FaMapMarkerAlt, FaWifi, FaExclamationTriangle, FaEyeSlash, FaHistory, FaCalendarAlt, FaClock, FaTrash, FaEdit, FaEye } from "react-icons/fa";
 import toast from "react-hot-toast";
 import { EGPSStatus, APLSTATUS } from "@/common/utils/status";
 
@@ -16,6 +16,7 @@ import GpsLogDrawer from "@/components/organisms/GpsLogDrawer";
 import HoursLogDrawer from "@/components/organisms/HoursLogDrawer";
 import AplEditFormModal from "@/components/organisms/AplEditFormModal";
 import EditServiceHistoryModal from "@/components/organisms/EditServiceHistoryModal";
+import CompleteServiceModal from "@/components/organisms/CompleteServiceModal";
 
 const DetailUnitChart = dynamic(() => import("@/components/organisms/DetailUnitChart"), { 
   ssr: false, 
@@ -54,6 +55,18 @@ export default function UnitDetailPage() {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isDeletingUnit, setIsDeletingUnit] = useState(false);
   const [editingHistoryItem, setEditingHistoryItem] = useState<any | null>(null);
+  const [deletingHistoryItem, setDeletingHistoryItem] = useState<any | null>(null);
+  const [isDeletingHistory, setIsDeletingHistory] = useState(false);
+  const [servicingItem, setServicingItem] = useState<{ item: any; unit: any } | null>(null);
+  const [expandedHistoryIds, setExpandedHistoryIds] = useState<string[]>([]);
+
+  const toggleExpandHistory = (historyId: string) => {
+    setExpandedHistoryIds(prev =>
+      prev.includes(historyId)
+        ? prev.filter(id => id !== historyId)
+        : [...prev, historyId]
+    );
+  };
 
   const handleDeleteUnit = async () => {
     if (!id) return;
@@ -70,8 +83,24 @@ export default function UnitDetailPage() {
     }
   };
 
+  const handleDeleteHistory = async () => {
+    if (!deletingHistoryItem?.id) return;
+    setIsDeletingHistory(true);
+    try {
+      await aplHistoryService.deleteHistory(deletingHistoryItem.id);
+      toast.success("Riwayat servis berhasil dihapus!");
+      setDeletingHistoryItem(null);
+      fetchServiceHistory();
+    } catch (err: any) {
+      console.error("Gagal menghapus riwayat servis:", err);
+      toast.error(err?.response?.data?.message || err?.message || "Gagal menghapus riwayat servis.");
+    } finally {
+      setIsDeletingHistory(false);
+    }
+  };
+
   useEffect(() => {
-    const isAnyModalOpen = !!(isChartModalOpen || editingAplItem || isCropModalOpen || isLightboxOpen || isDeleteConfirmOpen || editingHistoryItem);
+    const isAnyModalOpen = !!(isChartModalOpen || editingAplItem || isCropModalOpen || isLightboxOpen || isDeleteConfirmOpen || editingHistoryItem || deletingHistoryItem || servicingItem);
     if (isAnyModalOpen) {
       const scrollY = window.scrollY;
       document.body.style.position = 'fixed';
@@ -112,7 +141,6 @@ export default function UnitDetailPage() {
     try {
       const data = await aplHistoryService.findAllNoPaginate({
         unit_id: id as string,
-        status: APLSTATUS.SERVICE,
       });
       setServiceHistoryList(data || []);
     } catch (err) {
@@ -261,10 +289,16 @@ export default function UnitDetailPage() {
     setIsEditingLocation(false);
   };
 
+  const isAplEditEligible = (item: any) => {
+    const isUnconfigured = (!item.total || item.total === 0) && (!item.vault || item.vault === 0);
+    const isUnder50 = (item.input ?? 0) < 50;
+    return !isUnder50 || isUnconfigured;
+  };
+
   const handleNavigateAplItem = (direction: 'prev' | 'next') => {
     if (!editingAplItem || !apiUnit?.aplData) return;
     const sortedAplData = apiUnit.aplData || [];
-    const editableItems = sortedAplData.filter((item: any) => (item.input ?? 0) >= 50);
+    const editableItems = sortedAplData.filter(isAplEditEligible);
     if (editableItems.length === 0) return;
 
     const currentIndex = editableItems.findIndex((item: any) => item.category_apl_id === editingAplItem.category_apl_id);
@@ -313,7 +347,7 @@ export default function UnitDetailPage() {
         if (e.key === 'q' || e.key === 'Q') {
           e.preventDefault();
           if (apiUnit?.aplData && apiUnit.aplData.length > 0) {
-            const firstEligible = apiUnit.aplData.find((item: any) => (item.input ?? 0) >= 50);
+            const firstEligible = apiUnit.aplData.find(isAplEditEligible);
             if (firstEligible) {
               setEditingAplItem(firstEligible);
             }
@@ -458,9 +492,17 @@ export default function UnitDetailPage() {
       if (elements.length > 0) {
         const index = elements[0].index;
         const selectedItem = sortedAplData[index];
-        if (selectedItem && (selectedItem.input ?? 0) >= 50) {
-          setEditingAplItem(selectedItem);
-          setIsChartModalOpen(false);
+        if (selectedItem) {
+          const isUnconfigured = (!selectedItem.total || selectedItem.total === 0) && (!selectedItem.vault || selectedItem.vault === 0);
+          const isUnder50 = (selectedItem.input ?? 0) < 50;
+
+          if (isUnder50 && !isUnconfigured) {
+            setServicingItem({ item: selectedItem, unit: apiUnit || unit });
+            setIsChartModalOpen(false);
+          } else {
+            setEditingAplItem(selectedItem);
+            setIsChartModalOpen(false);
+          }
         }
       }
     },
@@ -753,16 +795,22 @@ export default function UnitDetailPage() {
                             (a: any) => a.id === history.apl_id || a.category_apl_id === history.apl_id
                           )?.name || "Komponen Servis";
                           const serviceDateTime = history.last_time || history.created_at;
+                          const historyId = String(history.id || idx);
+                          const isExpanded = expandedHistoryIds.includes(historyId);
 
                           return (
                             <div
                               key={idx}
                               className="p-5 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200/80 dark:border-white/10 shadow-sm hover:shadow-md transition"
                             >
-                              {/* Top Bar: Component + Status + Date */}
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-white/5">
+                              {/* Top Bar: Component + Status + Date + Action Buttons */}
+                              <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${isExpanded ? "pb-3 border-b border-slate-100 dark:border-white/5" : ""}`}>
                                 <div className="flex items-center gap-2.5">
-                                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                                    history.status === APLSTATUS.UPDATE
+                                      ? "bg-sky-500/10 text-sky-600 dark:text-sky-400"
+                                      : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                  }`}>
                                     <FaWrench size={14} />
                                   </div>
                                   <div>
@@ -770,7 +818,11 @@ export default function UnitDetailPage() {
                                       {compName}
                                     </h4>
                                     <div className="flex items-center gap-2 mt-0.5">
-                                      <span className="px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-[10px] font-extrabold uppercase tracking-wider">
+                                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider ${
+                                        history.status === APLSTATUS.UPDATE
+                                          ? "bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300"
+                                          : "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300"
+                                      }`}>
                                         {history.status || "SERVICE"}
                                       </span>
                                     </div>
@@ -800,76 +852,103 @@ export default function UnitDetailPage() {
                                     </span>
                                   </div>
 
-                                  <button
-                                    type="button"
-                                    onClick={() => setEditingHistoryItem(history)}
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-950/40 dark:hover:text-sky-400 transition cursor-pointer"
-                                    title="Edit Riwayat Servis"
-                                  >
-                                    <FaEdit size={13} />
-                                  </button>
-                                </div>
-                              </div>
-
-                              {/* Stat Cards 3 Kolom */}
-                              <div className="grid grid-cols-3 gap-3 my-4">
-                                <div className="p-3 rounded-xl bg-sky-50/80 dark:bg-sky-950/30 border border-sky-100 dark:border-sky-500/20 text-center">
-                                  <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 uppercase tracking-wider block mb-0.5">
-                                    Input Manual Baru
-                                  </span>
-                                  <span className="text-lg font-black text-sky-800 dark:text-sky-200">
-                                    {history.last_total ?? history.input_total ?? "-"}
-                                  </span>
-                                </div>
-
-                                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-white/5 text-center">
-                                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-0.5">
-                                    HM Terakhir Servis
-                                  </span>
-                                  <span className="text-lg font-black text-slate-800 dark:text-slate-100">
-                                    {history.last_hm ?? "-"}
-                                  </span>
-                                </div>
-
-                                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-white/5 text-center">
-                                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-0.5">
-                                    Sisa Jam Saat Servis
-                                  </span>
-                                  <span className="text-lg font-black text-slate-800 dark:text-slate-100">
-                                    {history.remaining_hours ?? "-"}
-                                  </span>
-                                </div>
-                              </div>
-
-                              {/* Foto Bukti Grid */}
-                              {validImages.length > 0 && (
-                                <div className="pt-3 border-t border-slate-100 dark:border-white/5">
-                                  <p className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-1.5">
-                                    <FaImage size={12} className="text-sky-500" />
-                                    <span>Foto Bukti Servis ({validImages.length})</span>
-                                  </p>
-                                  <div className="flex flex-wrap gap-2.5">
-                                    {validImages.map((img: string, imgIdx: number) => (
-                                      <div
-                                        key={imgIdx}
-                                        onClick={() => setPreviewImageUrl(img)}
-                                        className="w-20 h-20 rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 shrink-0 cursor-pointer group relative shadow-2xs"
-                                        title="Klik untuk melihat foto lebih besar"
-                                      >
-                                        <img
-                                          src={img}
-                                          alt={`Bukti Servis ${imgIdx + 1}`}
-                                          className="w-full h-full object-cover transition duration-300 group-hover:scale-110"
-                                        />
-                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition duration-300 flex items-center justify-center">
-                                          <FaSearchPlus
-                                            className="text-white opacity-0 group-hover:opacity-100 drop-shadow-md"
-                                            size={16}
-                                          />
-                                        </div>
-                                      </div>
-                                    ))}
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleExpandHistory(historyId)}
+                                      className={`p-1.5 rounded-lg transition cursor-pointer ${
+                                        isExpanded
+                                          ? "text-sky-600 bg-sky-50 dark:bg-sky-950/50 dark:text-sky-400"
+                                          : "text-slate-400 hover:text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-950/40 dark:hover:text-sky-400"
+                                      }`}
+                                      title={isExpanded ? "Tutup Detail" : "Lihat Detail"}
+                                    >
+                                      <FaEye size={13} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditingHistoryItem(history)}
+                                      className="p-1.5 rounded-lg text-slate-400 hover:text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-950/40 dark:hover:text-sky-400 transition cursor-pointer"
+                                      title="Edit Riwayat Servis"
+                                    >
+                                      <FaEdit size={13} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setDeletingHistoryItem(history)}
+                                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition cursor-pointer"
+                                      title="Hapus Riwayat Servis"
+                                    >
+                                      <FaTrash size={12} />
+                                    </button>
                                   </div>
+                                </div>
+                              </div>
+
+                              {/* Collapsible Details Content */}
+                              {isExpanded && (
+                                <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+                                  {/* Stat Cards 3 Kolom */}
+                                  <div className="grid grid-cols-3 gap-3 my-4">
+                                    <div className="p-3 rounded-xl bg-sky-50/80 dark:bg-sky-950/30 border border-sky-100 dark:border-sky-500/20 text-center">
+                                      <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 uppercase tracking-wider block mb-0.5">
+                                        Input Manual Baru
+                                      </span>
+                                      <span className="text-lg font-black text-sky-800 dark:text-sky-200">
+                                        {history.last_total ?? history.input_total ?? "-"}
+                                      </span>
+                                    </div>
+
+                                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-white/5 text-center">
+                                      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-0.5">
+                                        HM Terakhir Servis
+                                      </span>
+                                      <span className="text-lg font-black text-slate-800 dark:text-slate-100">
+                                        {history.last_hm ?? "-"}
+                                      </span>
+                                    </div>
+
+                                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-white/5 text-center">
+                                      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-0.5">
+                                        Sisa Jam Saat Servis
+                                      </span>
+                                      <span className="text-lg font-black text-slate-800 dark:text-slate-100">
+                                        {history.remaining_hours ?? "-"}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Foto Bukti Grid */}
+                                  {validImages.length > 0 && (
+                                    <div className="pt-3 border-t border-slate-100 dark:border-white/5">
+                                      <p className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-1.5">
+                                        <FaImage size={12} className="text-sky-500" />
+                                        <span>Foto Bukti Servis ({validImages.length})</span>
+                                      </p>
+                                      <div className="flex flex-wrap gap-2.5">
+                                        {validImages.map((img: string, imgIdx: number) => (
+                                          <div
+                                            key={imgIdx}
+                                            onClick={() => setPreviewImageUrl(img)}
+                                            className="w-20 h-20 rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 shrink-0 cursor-pointer group relative shadow-2xs"
+                                            title="Klik untuk melihat foto lebih besar"
+                                          >
+                                            <img
+                                              src={img}
+                                              alt={`Bukti Servis ${imgIdx + 1}`}
+                                              className="w-full h-full object-cover transition duration-300 group-hover:scale-110"
+                                            />
+                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition duration-300 flex items-center justify-center">
+                                              <FaSearchPlus
+                                                className="text-white opacity-0 group-hover:opacity-100 drop-shadow-md"
+                                                size={16}
+                                              />
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -1314,6 +1393,81 @@ export default function UnitDetailPage() {
             )?.name || "Komponen Servis"
           }
           onSuccess={fetchServiceHistory}
+        />
+      )}
+
+      {/* Delete Service History Confirmation Modal */}
+      {deletingHistoryItem && (
+        <div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 shadow-2xl p-6 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                <FaExclamationTriangle size={22} />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base font-black text-slate-900 dark:text-white">
+                  Hapus Riwayat Servis?
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
+                  Apakah Anda yakin ingin menghapus data riwayat servis untuk komponen{" "}
+                  <strong className="text-slate-800 dark:text-slate-200">
+                    {sortedAplData.find(
+                      (a: any) =>
+                        a.id === deletingHistoryItem.apl_id ||
+                        a.category_apl_id === deletingHistoryItem.apl_id
+                    )?.name || "Komponen"}
+                  </strong>
+                  ? Tindakan ini tidak dapat dibatalkan.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end items-center gap-2.5 pt-4 border-t border-slate-100 dark:border-white/5">
+              <button
+                type="button"
+                disabled={isDeletingHistory}
+                onClick={() => setDeletingHistoryItem(null)}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingHistory}
+                onClick={handleDeleteHistory}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-xs font-bold text-white shadow-md shadow-rose-600/20 transition cursor-pointer disabled:opacity-50"
+              >
+                {isDeletingHistory ? (
+                  <>
+                    <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    <span>Menghapus...</span>
+                  </>
+                ) : (
+                  <>
+                    <FaTrash size={12} />
+                    <span>Ya, Hapus Riwayat</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Complete Service Modal (For <= 0 Hours) */}
+      {servicingItem && (
+        <CompleteServiceModal
+          isOpen={!!servicingItem}
+          onClose={() => setServicingItem(null)}
+          item={servicingItem.item}
+          unit={servicingItem.unit}
+          onSuccess={async () => {
+            if (id) {
+              const updated = await unitService.getUnitDetails(id as string);
+              setApiUnit(updated);
+              fetchServiceHistory();
+            }
+          }}
         />
       )}
 

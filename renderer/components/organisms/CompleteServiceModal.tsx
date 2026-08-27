@@ -22,6 +22,18 @@ export default function CompleteServiceModal({
   const [newTotal, setNewTotal] = useState<number | string>(
     item?.total !== undefined ? item.total : (unit?.hours || unit?.hm || 0)
   );
+  const [newVault, setNewVault] = useState<number | string>(
+    item?.vault !== undefined && item?.vault !== null ? item.vault : ""
+  );
+  const [isVaultFocused, setIsVaultFocused] = useState(false);
+
+  // Sync state when modal opens or item changes
+  useEffect(() => {
+    if (isOpen && item) {
+      setNewTotal(item?.total !== undefined ? item.total : (unit?.hours || unit?.hm || 0));
+      setNewVault(item?.vault !== undefined && item?.vault !== null ? item.vault : "");
+    }
+  }, [isOpen, item, unit]);
 
   // Default to current date in Indonesia (Asia/Jakarta) YYYY-MM-DD
   const [serviceDate, setServiceDate] = useState<string>(() => {
@@ -160,12 +172,12 @@ export default function CompleteServiceModal({
 
     setIsSubmitting(true);
     try {
-      // 1. Update APL unit with new manual total (vault remains the same)
+      // 1. Update APL unit with new manual total and new vault
       const updatedAplUnit = await aplUnitService.upsertAplUnit({
         unit_id: unit.id,
         category_apl_id: item.category_apl_id,
         total: Number(newTotal),
-        vault: item.vault
+        vault: newVault === "" ? item.vault : Number(newVault)
       });
 
       // 2. Record history of service completion with APLSTATUS.SERVICE
@@ -272,6 +284,44 @@ export default function CompleteServiceModal({
             />
             <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
               Nilai jam baru saat penggantian/servis komponen dilakukan.
+            </p>
+          </div>
+
+          {/* New Vault Input (Editable) */}
+          <div>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+              Vault
+            </label>
+            <input
+              id="apl-service-input-vault"
+              type="number"
+              value={newVault}
+              onChange={(e) => setNewVault(e.target.value === "" ? "" : Number(e.target.value))}
+              onFocus={() => setIsVaultFocused(true)}
+              onBlur={() => setTimeout(() => setIsVaultFocused(false), 200)}
+              placeholder="Masukkan jumlah vault..."
+              className="w-full rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm font-semibold text-slate-900 dark:text-white outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition"
+            />
+            {isVaultFocused && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {[150, 300, 500, 1000, 2000, 4000, 5000].map(val => (
+                  <button
+                    key={val}
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      setNewVault(val);
+                      setIsVaultFocused(false);
+                    }}
+                    className="cursor-pointer rounded-full bg-sky-100 px-3 py-1 text-xs font-medium text-sky-600 hover:bg-sky-200 dark:bg-sky-500/20 dark:text-sky-400 dark:hover:bg-sky-500/30 transition-colors"
+                  >
+                    {val}
+                  </button>
+                ))}
+              </div>
+            )}
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+              Interval jam penggantian/servis komponen berikutnya.
             </p>
           </div>
 

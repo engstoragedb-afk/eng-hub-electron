@@ -30,6 +30,10 @@ export class AplHistoryRepository extends Repository<IAplHistory> implements IAp
         const response = await this.restApi.axios.patch(`${this.baseUrl}/${id}`, data);
         return AplHistory.create(response.data.data).unmarshall();
     }
+
+    async deleteHistory(id: string): Promise<void> {
+        await this.restApi.axios.delete(`${this.baseUrl}/${id}`);
+    }
 }
 
 export const aplHistoryRepository = AplHistoryRepository.getInstance();

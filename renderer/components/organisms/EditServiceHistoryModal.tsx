@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { FaTimes, FaSave, FaImage, FaTrash, FaUpload, FaCalendarAlt, FaClock, FaInfoCircle, FaWrench } from "react-icons/fa";
 import { aplHistoryService } from "@/services";
+import { APLSTATUS } from "@/common/utils/status";
 import toast from "react-hot-toast";
 
 type EditServiceHistoryModalProps = {
@@ -18,6 +19,7 @@ export default function EditServiceHistoryModal({
   componentName,
   onSuccess
 }: EditServiceHistoryModalProps) {
+  const [status, setStatus] = useState<string>(APLSTATUS.SERVICE);
   const [serviceDate, setServiceDate] = useState<string>("");
   const [serviceTime, setServiceTime] = useState<string>("");
   const [images, setImages] = useState<string[]>([]);
@@ -28,6 +30,8 @@ export default function EditServiceHistoryModal({
   // Initialize form state when history item changes or modal opens
   useEffect(() => {
     if (!isOpen || !history) return;
+
+    setStatus(history.status || APLSTATUS.SERVICE);
 
     const rawDate = history.last_time || history.created_at;
     if (rawDate) {
@@ -170,7 +174,8 @@ export default function EditServiceHistoryModal({
 
       await aplHistoryService.updateHistory(history.id, {
         last_time: isNaN(fullDateTime.getTime()) ? new Date() : fullDateTime,
-        images: images
+        images: images,
+        status: status
       });
 
       toast.success(`Riwayat servis ${componentName} berhasil diperbarui!`);
@@ -239,6 +244,37 @@ export default function EditServiceHistoryModal({
               <span className="text-sm font-black text-slate-800 dark:text-slate-100 mt-0.5">
                 {history.remaining_hours ?? "-"}
               </span>
+            </div>
+          </div>
+
+          {/* Status Selection (SERVICE vs UPDATE) */}
+          <div>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
+              Status Riwayat <span className="text-rose-500">*</span>
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setStatus(APLSTATUS.SERVICE)}
+                className={`py-2 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-2 cursor-pointer ${
+                  status === APLSTATUS.SERVICE
+                    ? "bg-emerald-500 text-white border-emerald-600 shadow-sm shadow-emerald-500/20"
+                    : "bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-slate-700/50"
+                }`}
+              >
+                <span>SERVICE</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatus(APLSTATUS.UPDATE)}
+                className={`py-2 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-2 cursor-pointer ${
+                  status === APLSTATUS.UPDATE
+                    ? "bg-sky-500 text-white border-sky-600 shadow-sm shadow-sky-500/20"
+                    : "bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-slate-700/50"
+                }`}
+              >
+                <span>UPDATE</span>
+              </button>
             </div>
           </div>
 

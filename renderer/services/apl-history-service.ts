@@ -29,6 +29,10 @@ export class AplHistoryService extends Service<IAplHistory, IAplHistoryRepositor
     async updateHistory(id: string, data: IAplHistoryUpdatePayload): Promise<IAplHistory> {
         return this.repository.updateHistory(id, data);
     }
+
+    async deleteHistory(id: string): Promise<void> {
+        return this.repository.deleteHistory(id);
+    }
 }
 
 export const aplHistoryService = AplHistoryService.getInstance(aplHistoryRepository);

@@ -21,6 +21,12 @@ export default function AplEditFormModal({
   const [isSavingApl, setIsSavingApl] = useState(false);
   const [isVaultFocused, setIsVaultFocused] = useState(false);
 
+  const isAplEditEligible = (item: any) => {
+    const isUnconfigured = (!item.total || item.total === 0) && (!item.vault || item.vault === 0);
+    const isUnder50 = (item.input ?? 0) < 50;
+    return !isUnder50 || isUnconfigured;
+  };
+
   const handleSaveAplItem = async (closeModal = false, navigateNext = false) => {
     if (!editingAplItem || !editingAplItem.category_apl_id) return;
     if (editingAplItem.total === undefined) return;
@@ -44,7 +50,7 @@ export default function AplEditFormModal({
         onClose();
       } else if (navigateNext) {
         const sortedAplData = updated?.aplData || [];
-        const editableItems = sortedAplData.filter((item: any) => (item.input ?? 0) >= 50);
+        const editableItems = sortedAplData.filter(isAplEditEligible);
         if (editableItems.length > 0) {
           const currentIndex = editableItems.findIndex((item: any) => item.category_apl_id === editingAplItem.category_apl_id);
           let nextIndex = currentIndex !== -1 ? currentIndex + 1 : 0;
@@ -65,7 +71,7 @@ export default function AplEditFormModal({
   const handleNavigateAplItem = (direction: 'prev' | 'next') => {
     if (!editingAplItem || !apiUnit?.aplData) return;
     const sortedAplData = apiUnit.aplData || [];
-    const editableItems = sortedAplData.filter((item: any) => (item.input ?? 0) >= 50);
+    const editableItems = sortedAplData.filter(isAplEditEligible);
     if (editableItems.length === 0) return;
     
     const currentIndex = editableItems.findIndex((item: any) => item.category_apl_id === editingAplItem.category_apl_id);
@@ -93,7 +99,7 @@ export default function AplEditFormModal({
           <div className="flex items-start justify-between">
             {(() => {
               const sortedData = apiUnit?.aplData || [];
-              const editableItems = sortedData.filter((item: any) => (item.input ?? 0) >= 50);
+              const editableItems = sortedData.filter(isAplEditEligible);
               const total = editableItems.length;
               const currentIdx = editableItems.findIndex((item: any) => item.category_apl_id === editingAplItem.category_apl_id);
               if (total > 0 && currentIdx !== -1) {
