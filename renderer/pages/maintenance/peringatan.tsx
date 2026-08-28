@@ -25,6 +25,7 @@ export default function PeringatanServisPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("Semua");
   const [activeLevelTab, setActiveLevelTab] = useState("Semua Level");
+  const [activeCategoryTab, setActiveCategoryTab] = useState("Semua Kategori");
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [servicingItem, setServicingItem] = useState<{ item: any; unit: any } | null>(null);
   const [showPrintModal, setShowPrintModal] = useState(false);
@@ -186,6 +187,57 @@ export default function PeringatanServisPage() {
     return counts;
   }, [mappedUnits]);
 
+  const categoryList = useMemo(() => {
+    const standard = ["EXCAVATOR", "BULLDOZER", "TRUCK", "VIBRO", "MOTOR GRADER"];
+    const present = Array.from(
+      new Set(
+        mappedUnits
+          .map((u: any) => (u.category || "").toUpperCase().trim())
+          .filter(Boolean)
+      )
+    );
+    const combined = Array.from(new Set([...standard, ...present]));
+    return ["Semua Kategori", ...combined];
+  }, [mappedUnits]);
+
+  const categoryCounts = useMemo(() => {
+    const baseFiltered = mappedUnits.filter((unit: any) => {
+      if (activeLevelTab !== "Semua Level" && unit.mostSevereLevel !== activeLevelTab) {
+        return false;
+      }
+      if (activeTab !== "Semua" && String(unit.service) !== String(activeTab)) {
+        return false;
+      }
+      if (searchTerm.trim()) {
+        const query = searchTerm.toLowerCase().trim();
+        const codeMatch = (unit.unit_name || "").toLowerCase().includes(query);
+        const categoryMatch = (unit.category || "").toLowerCase().includes(query);
+        const typeMatch = (unit.type || "").toLowerCase().includes(query);
+        const serviceMatch = (unit.service || "").toLowerCase().includes(query);
+        const itemMatch = (unit.allItems || []).some((item: any) => 
+          (item.name || "").toLowerCase().includes(query)
+        );
+        if (!codeMatch && !categoryMatch && !typeMatch && !serviceMatch && !itemMatch) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    const counts: Record<string, number> = {
+      "Semua Kategori": baseFiltered.length,
+    };
+
+    categoryList.forEach((cat) => {
+      if (cat === "Semua Kategori") return;
+      counts[cat] = baseFiltered.filter(
+        (u: any) => (u.category || "").toUpperCase().trim() === cat.toUpperCase().trim()
+      ).length;
+    });
+
+    return counts;
+  }, [mappedUnits, activeLevelTab, activeTab, searchTerm, categoryList]);
+
   const filteredArray = useMemo(() => {
     return mappedUnits.filter((unit: any) => {
       if (activeLevelTab !== "Semua Level" && unit.mostSevereLevel !== activeLevelTab) {
@@ -193,6 +245,11 @@ export default function PeringatanServisPage() {
       }
       if (activeTab !== "Semua" && String(unit.service) !== String(activeTab)) {
         return false;
+      }
+      if (activeCategoryTab !== "Semua Kategori") {
+        if ((unit.category || "").toUpperCase().trim() !== activeCategoryTab.toUpperCase().trim()) {
+          return false;
+        }
       }
       if (searchTerm.trim()) {
         const query = searchTerm.toLowerCase().trim();
@@ -210,9 +267,9 @@ export default function PeringatanServisPage() {
       }
       return true;
     });
-  }, [mappedUnits, activeTab, activeLevelTab, searchTerm]);
+  }, [mappedUnits, activeTab, activeLevelTab, activeCategoryTab, searchTerm]);
 
-  const isFilterActive = activeTab !== "Semua" || activeLevelTab !== "Semua Level" || searchTerm.trim() !== "";
+  const isFilterActive = activeTab !== "Semua" || activeLevelTab !== "Semua Level" || activeCategoryTab !== "Semua Kategori" || searchTerm.trim() !== "";
 
   const handlePsTabClick = (tab: string) => {
     setActiveTab(tab);
@@ -287,6 +344,7 @@ export default function PeringatanServisPage() {
                   onClick={() => {
                     setActiveTab("Semua");
                     setActiveLevelTab("Semua Level");
+                    setActiveCategoryTab("Semua Kategori");
                     setSearchTerm("");
                   }}
                   className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900 text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-rose-500 hover:border-rose-300 transition shadow-2xs shrink-0 cursor-pointer"
@@ -407,8 +465,42 @@ export default function PeringatanServisPage() {
               </div>
             </div>
 
-            {/* Grid Kartu Unit */}
-            <div className="flex-1 min-w-0">
+            {/* Main Area: Category Tabs Header + Grid Kartu Unit */}
+            <div className="flex-1 min-w-0 flex flex-col gap-4">
+              
+              {/* Category Unit Top Tabs */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                {categoryList.map((cat) => {
+                  const isSelected = activeCategoryTab === cat;
+                  const count = categoryCounts[cat] || 0;
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => setActiveCategoryTab(cat)}
+                      className={`group flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all duration-200 cursor-pointer ${
+                        isSelected
+                          ? "bg-sky-500 text-white shadow-md shadow-sky-500/20 scale-[1.02]"
+                          : "bg-white/80 dark:bg-slate-900/70 border border-slate-200/80 dark:border-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white shadow-2xs"
+                      }`}
+                    >
+                      <span>{cat}</span>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-black transition-colors ${
+                          isSelected
+                            ? "bg-white/25 text-white"
+                            : count > 0
+                            ? "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                            : "bg-transparent text-slate-400 dark:text-slate-600"
+                        }`}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Grid Kartu Unit */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
                 {isLoading ? (
                   <div className="col-span-full py-16 flex flex-col items-center justify-center gap-3">

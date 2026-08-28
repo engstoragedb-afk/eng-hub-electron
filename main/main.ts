@@ -47,9 +47,44 @@ app.on('window-all-closed', () => {
   app.quit()
 })
 
-ipcMain.on('message', async (event, arg) => {
-  event.reply('message', `${arg} World!`)
-})
+ipcMain.handle('window-minimize', () => {
+  const windows = require('electron').BrowserWindow.getAllWindows();
+  const win = windows.length > 0 ? windows[0] : null;
+  if (win) win.minimize();
+});
+
+ipcMain.handle('window-maximize', () => {
+  const windows = require('electron').BrowserWindow.getAllWindows();
+  const win = windows.length > 0 ? windows[0] : null;
+  if (win) {
+    if (win.isFullScreen()) {
+      win.setFullScreen(false);
+    } else if (win.isMaximized()) {
+      win.unmaximize();
+    } else {
+      win.maximize();
+    }
+  }
+});
+
+ipcMain.handle('window-close', () => {
+  const windows = require('electron').BrowserWindow.getAllWindows();
+  const win = windows.length > 0 ? windows[0] : null;
+  if (!win) return;
+  
+  const response = dialog.showMessageBoxSync(win, {
+    type: 'question',
+    buttons: ['Batal', 'Keluar'],
+    defaultId: 0,
+    cancelId: 0,
+    title: 'Konfirmasi Keluar',
+    message: 'Apakah Anda yakin ingin keluar dari aplikasi?'
+  });
+  
+  if (response === 1) {
+    app.quit();
+  }
+});
 
 ipcMain.handle('request-quit', () => {
   const windows = require('electron').BrowserWindow.getAllWindows();

@@ -1,4 +1,4 @@
-import { FaExpand, FaSun, FaMoon, FaDownload, FaSync, FaQuestionCircle, FaTimes, FaKeyboard, FaSearch } from "react-icons/fa";
+import { FaExpand, FaSun, FaMoon, FaDownload, FaSync, FaQuestionCircle, FaTimes, FaKeyboard, FaSearch, FaMinus, FaRegSquare } from "react-icons/fa";
 import { useUIStore } from "@/store/uiStore";
 // import { useRouter } from "next/router";
 import { useTheme } from "next-themes";
@@ -74,6 +74,24 @@ export default function TopBar() {
       setUpdateStatus("checking");
     } else if (updateStatus === "downloaded") {
       window.ipc.invoke("install-update");
+    }
+  };
+
+  const handleMinimize = () => {
+    if (typeof window !== "undefined" && window.ipc) {
+      window.ipc.invoke("window-minimize");
+    }
+  };
+
+  const handleMaximize = () => {
+    if (typeof window !== "undefined" && window.ipc) {
+      window.ipc.invoke("window-maximize");
+    }
+  };
+
+  const handleClose = () => {
+    if (typeof window !== "undefined" && window.ipc) {
+      window.ipc.invoke("window-close");
     }
   };
 
@@ -173,6 +191,31 @@ export default function TopBar() {
       >
         <FaQuestionCircle className="text-sm" />
       </button>
+
+      {/* Window Controls (Minimize, Maximize/Restore, Close) */}
+      <div className="flex items-center ml-1 pl-2.5 border-l border-slate-200 dark:border-white/10 gap-1.5">
+        <button
+          onClick={handleMinimize}
+          className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition cursor-pointer border border-slate-200 dark:border-white/5 shadow-xs active:scale-95"
+          title="Minimize"
+        >
+          <FaMinus size={11} />
+        </button>
+        <button
+          onClick={handleMaximize}
+          className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition cursor-pointer border border-slate-200 dark:border-white/5 shadow-xs active:scale-95"
+          title="Maximize / Restore"
+        >
+          <FaRegSquare size={11} />
+        </button>
+        <button
+          onClick={handleClose}
+          className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-rose-500 hover:text-white dark:hover:bg-rose-600 dark:hover:text-white hover:border-rose-500 transition cursor-pointer border border-slate-200 dark:border-white/5 shadow-xs active:scale-95"
+          title="Tutup Aplikasi"
+        >
+          <FaTimes size={13} />
+        </button>
+      </div>
 
       {/* Keyboard Shortcuts Modal */}
       {isShortcutsOpen && mounted && createPortal(
