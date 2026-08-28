@@ -21,6 +21,28 @@ function getLogoImage(): Promise<HTMLImageElement> {
   });
 }
 
+function wrapTextLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  if (!text || text.trim() === "") return ["-"];
+  const words = text.split(" ");
+  const lines: string[] = [];
+  let currentLine = "";
+
+  for (let i = 0; i < words.length; i++) {
+    const testLine = currentLine ? `${currentLine} ${words[i]}` : words[i];
+    const testWidth = ctx.measureText(testLine).width;
+    if (testWidth > maxWidth && currentLine !== "") {
+      lines.push(currentLine);
+      currentLine = words[i];
+    } else {
+      currentLine = testLine;
+    }
+  }
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+  return lines.length > 0 ? lines : [text];
+}
+
 export async function copyUnitReportImage(
   unit: any,
   aplData: any[],
@@ -47,9 +69,35 @@ export async function copyUnitReportImage(
 
     const width = 850;
     const itemRowHeight = 44;
-    const headerHeight = 222;
     const footerHeight = 20;
-    const contentHeight = Math.max(100, selectedItems.length * itemRowHeight);
+
+    // Persiapkan Font dan Hitung Baris Teks Terbungkus (Auto Wrap)
+    ctx.font = "600 11.5px 'Segoe UI', Roboto, Helvetica, sans-serif";
+
+    const locName = unit?.location?.name || (typeof unit?.location === "string" ? unit?.location : "-");
+    const opName = unit?.operator?.full_name || unit?.operator?.name || "-";
+    const hoursVal = unit?.hours !== undefined && unit?.hours !== null ? unit?.hours : (unit?.hm || 0);
+    const brandVal = unit?.brand || "-";
+    const typeVal = unit?.type?.name || (typeof unit?.type === "string" ? unit?.type : "-");
+    const brandTypeStr = `${brandVal}${typeVal && typeVal !== "-" ? ` (${typeVal})` : ""}`;
+
+    // Hitung pembagian baris teks agar tidak meluap ke kanan
+    const locLines = wrapTextLines(ctx, locName, 310);
+    const opLines = wrapTextLines(ctx, opName, 310);
+    const hoursLines = wrapTextLines(ctx, `${hoursVal} Jam`, 260);
+    const brandTypeLines = wrapTextLines(ctx, brandTypeStr, 260);
+
+    const lineHeight = 16;
+    const row1Height = Math.max(locLines.length, hoursLines.length) * lineHeight;
+    const row2Height = Math.max(opLines.length, brandTypeLines.length) * lineHeight;
+    const infoBoxPadding = 12;
+    const rowGap = 10;
+    const infoBoxH = Math.max(58, infoBoxPadding * 2 + row1Height + rowGap + row2Height);
+
+    const infoBoxY = 112;
+    const tableHeaderY = infoBoxY + infoBoxH + 24;
+    const headerHeight = tableHeaderY + 30;
+    const contentHeight = Math.max(80, selectedItems.length * itemRowHeight);
     const height = headerHeight + contentHeight + footerHeight;
 
     const scale = 2; // High-DPI 2x Retina
@@ -118,9 +166,7 @@ export async function copyUnitReportImage(
     ctx.lineTo(width - 32, dividerY);
     ctx.stroke();
 
-    // 4. Structured Unit Info Box (2 Kolom Rapi)
-    const infoBoxY = 112;
-    const infoBoxH = 56;
+    // 4. Structured Unit Info Box (Auto-Wrapped & Dynamic Height)
     ctx.fillStyle = "#f8fafc";
     ctx.beginPath();
     ctx.roundRect(32, infoBoxY, width - 64, infoBoxH, 8);
@@ -129,37 +175,60 @@ export async function copyUnitReportImage(
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    const locName = unit?.location?.name || (typeof unit?.location === "string" ? unit?.location : "-");
-    const opName = unit?.operator?.full_name || unit?.operator?.name || "-";
-    const hoursVal = unit?.hours !== undefined && unit?.hours !== null ? unit?.hours : (unit?.hm || 0);
-    const brandVal = unit?.brand || "-";
-    const typeVal = unit?.type?.name || (typeof unit?.type === "string" ? unit?.type : "-");
+    const row1Y = infoBoxY + infoBoxPadding + 11;
 
-    // Kolom Kiri
+    // Kolom Kiri - Row 1 (Lokasi)
     ctx.font = "bold 11px 'Segoe UI', Roboto, Helvetica, sans-serif";
     ctx.fillStyle = "#64748b";
-    ctx.fillText("Lokasi", 48, infoBoxY + 22);
-    ctx.fillText("Operator", 48, infoBoxY + 44);
+    ctx.fillText("Lokasi", 48, row1Y);
+    ctx.fillText(":", 104, row1Y);
 
     ctx.font = "600 11.5px 'Segoe UI', Roboto, Helvetica, sans-serif";
     ctx.fillStyle = "#0f172a";
-    ctx.fillText(`:  ${locName}`, 115, infoBoxY + 22);
-    ctx.fillText(`:  ${opName}`, 115, infoBoxY + 44);
+    locLines.forEach((line, idx) => {
+      ctx.fillText(line, 114, row1Y + idx * lineHeight);
+    });
 
-    // Kolom Kanan
+    // Kolom Kanan - Row 1 (Total Jam)
     const col2X = 450;
     ctx.font = "bold 11px 'Segoe UI', Roboto, Helvetica, sans-serif";
     ctx.fillStyle = "#64748b";
-    ctx.fillText("Total Jam", col2X, infoBoxY + 22);
-    ctx.fillText("Brand / Tipe", col2X, infoBoxY + 44);
+    ctx.fillText("Total Jam", col2X, row1Y);
+    ctx.fillText(":", col2X + 74, row1Y);
 
     ctx.font = "600 11.5px 'Segoe UI', Roboto, Helvetica, sans-serif";
     ctx.fillStyle = "#0f172a";
-    ctx.fillText(`:  ${hoursVal} Jam`, col2X + 85, infoBoxY + 22);
-    ctx.fillText(`:  ${brandVal}${typeVal && typeVal !== "-" ? ` (${typeVal})` : ""}`, col2X + 85, infoBoxY + 44);
+    hoursLines.forEach((line, idx) => {
+      ctx.fillText(line, col2X + 84, row1Y + idx * lineHeight);
+    });
+
+    const row2Y = row1Y + row1Height + rowGap;
+
+    // Kolom Kiri - Row 2 (Operator)
+    ctx.font = "bold 11px 'Segoe UI', Roboto, Helvetica, sans-serif";
+    ctx.fillStyle = "#64748b";
+    ctx.fillText("Operator", 48, row2Y);
+    ctx.fillText(":", 104, row2Y);
+
+    ctx.font = "600 11.5px 'Segoe UI', Roboto, Helvetica, sans-serif";
+    ctx.fillStyle = "#0f172a";
+    opLines.forEach((line, idx) => {
+      ctx.fillText(line, 114, row2Y + idx * lineHeight);
+    });
+
+    // Kolom Kanan - Row 2 (Brand / Tipe)
+    ctx.font = "bold 11px 'Segoe UI', Roboto, Helvetica, sans-serif";
+    ctx.fillStyle = "#64748b";
+    ctx.fillText("Brand / Tipe", col2X, row2Y);
+    ctx.fillText(":", col2X + 74, row2Y);
+
+    ctx.font = "600 11.5px 'Segoe UI', Roboto, Helvetica, sans-serif";
+    ctx.fillStyle = "#0f172a";
+    brandTypeLines.forEach((line, idx) => {
+      ctx.fillText(line, col2X + 84, row2Y + idx * lineHeight);
+    });
 
     // 5. Table Header
-    const tableHeaderY = 192;
     ctx.fillStyle = "#f1f5f9";
     ctx.beginPath();
     ctx.roundRect(32, tableHeaderY - 14, width - 64, 28, 6);
