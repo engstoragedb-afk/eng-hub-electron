@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { FaTimes, FaCheckCircle, FaImage, FaTrash, FaUpload, FaCalendarAlt, FaClock, FaInfoCircle } from "react-icons/fa";
+import { FaTimes, FaCheckCircle, FaImage, FaTrash, FaUpload, FaCalendarAlt, FaClock, FaInfoCircle, FaSave } from "react-icons/fa";
 import { aplUnitService, aplHistoryService } from "@/services";
 import { APLSTATUS } from "@/common/utils/status";
 import toast from "react-hot-toast";
@@ -156,6 +156,35 @@ export default function CompleteServiceModal({
 
   const handleRemoveImage = (index: number) => {
     setImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const originalTotal = item?.total !== undefined ? item.total : (unit?.hours || unit?.hm || 0);
+  const isManualTotalUnchanged = newTotal !== "" && (Number(newTotal) === Number(originalTotal) || String(newTotal).trim() === String(originalTotal).trim());
+
+  const handleSaveVaultOnly = async () => {
+    if (newVault === "" || isNaN(Number(newVault))) {
+      toast.error("Mohon isi nilai vault yang valid.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await aplUnitService.upsertAplUnit({
+        unit_id: unit.id,
+        category_apl_id: item.category_apl_id,
+        total: Number(originalTotal),
+        vault: Number(newVault)
+      });
+
+      toast.success(`Vault untuk ${item.name} berhasil diperbarui!`);
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      console.error("Failed to save vault:", err);
+      toast.error(err?.response?.data?.message || err?.message || "Gagal memperbarui vault.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -450,6 +479,19 @@ export default function CompleteServiceModal({
             >
               Batal
             </button>
+
+            {isManualTotalUnchanged && (
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={handleSaveVaultOnly}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-600 active:scale-95 text-xs font-bold text-white shadow-md shadow-sky-500/20 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FaSave size={13} />
+                <span>Simpan Vault</span>
+              </button>
+            )}
+
             <button
               type="submit"
               disabled={isSubmitting}

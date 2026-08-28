@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { aplUnitService, unitService } from "@/services";
+import { aplUnitService, aplHistoryService, unitService } from "@/services";
+import { APLSTATUS } from "@/common/utils/status";
 import toast from "react-hot-toast";
 
 type AplEditFormModalProps = {
@@ -9,6 +10,7 @@ type AplEditFormModalProps = {
   setApiUnit: (unit: any) => void;
   onClose: () => void;
   setPreviewImageUrl?: (url: string) => void;
+  onSaveSuccess?: () => void;
 };
 
 export default function AplEditFormModal({
@@ -17,6 +19,7 @@ export default function AplEditFormModal({
   apiUnit,
   setApiUnit,
   onClose,
+  onSaveSuccess,
 }: AplEditFormModalProps) {
   const [isSavingApl, setIsSavingApl] = useState(false);
   const [isVaultFocused, setIsVaultFocused] = useState(false);
@@ -34,12 +37,37 @@ export default function AplEditFormModal({
     try {
       setIsSavingApl(true);
       
-      await aplUnitService.upsertAplUnit({
+      const currentItem = apiUnit?.aplData?.find(
+        (a: any) => a.category_apl_id === editingAplItem.category_apl_id
+      );
+      const previousTotal = currentItem?.total;
+      const newTotal = Number(editingAplItem.total);
+      const isTotalChanged = previousTotal === undefined || newTotal !== Number(previousTotal);
+
+      const updatedAplUnit = await aplUnitService.upsertAplUnit({
         unit_id: apiUnit.id as string,
         category_apl_id: editingAplItem.category_apl_id,
-        total: editingAplItem.total,
-        vault: editingAplItem.vault
+        total: newTotal,
+        vault: editingAplItem.vault === undefined ? undefined : Number(editingAplItem.vault)
       });
+
+      // Record history with APLSTATUS.SERVICE without images if total value changed
+      if (isTotalChanged) {
+        try {
+          await aplHistoryService.createHistory({
+            apl_id: updatedAplUnit?.id || currentItem?.id || editingAplItem.id || editingAplItem.category_apl_id,
+            remaining_hours: Number(editingAplItem.input ?? currentItem?.input ?? 0),
+            last_hm: Number(apiUnit.hours ?? apiUnit.hm ?? 0),
+            last_total: newTotal,
+            last_time: new Date(),
+            status: APLSTATUS.SERVICE,
+            images: []
+          });
+          onSaveSuccess?.();
+        } catch (historyErr) {
+          console.error("Failed to record service history:", historyErr);
+        }
+      }
       
       const updated = await unitService.getUnitDetails(apiUnit.id as string);
       setApiUnit(updated);

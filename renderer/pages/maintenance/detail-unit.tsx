@@ -1316,6 +1316,7 @@ export default function UnitDetailPage() {
         setApiUnit={setApiUnit}
         onClose={() => setEditingAplItem(null)}
         setPreviewImageUrl={setPreviewImageUrl}
+        onSaveSuccess={fetchServiceHistory}
       />
       {isChartModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4 sm:p-8">
