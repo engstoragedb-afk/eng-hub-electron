@@ -22,9 +22,28 @@ export class UnitRepository extends Repository<IUnit> implements IUnitRepository
     }
 
     async getAllUnits(params?: IUnitGetParams): Promise<IUnit[]> {
-        const { data } = await this.restApi.axios.get(`${this.baseUrl}/all`, { params });
-        const resData = data.data || data;
-        return resData.map((item: any) => Unit.create(item).unmarshall());
+        try {
+            const { data } = await this.restApi.axios.get(`${this.baseUrl}/all`, { params });
+            const resData = data.data || data;
+            if (Array.isArray(resData)) {
+                return resData.map((item: any) => Unit.create(item).unmarshall());
+            }
+            return [];
+        } catch (error) {
+            console.warn("Falling back getAllUnits to getAllUnitsWithDetail:", error);
+            try {
+                const data = await this.getAllUnitsWithDetail(params);
+                if (Array.isArray(data)) {
+                    return data.map((item: any) => Unit.create({
+                        ...item,
+                        name: item.code || item.name || item.unit_name || "Unknown",
+                    }).unmarshall());
+                }
+            } catch (fallbackErr) {
+                console.error("Fallback getAllUnitsWithDetail failed:", fallbackErr);
+            }
+            return [];
+        }
     }
 
     async getAllUnitsWithDetail(params?: IUnitGetParams): Promise<any[]> {

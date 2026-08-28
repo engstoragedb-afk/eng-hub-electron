@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import MaintenanceLayout from "@/components/organisms/MaintenanceLayout";
-import { FaMagnifyingGlass, FaXmark, FaPenToSquare, FaPlus, FaList, FaGrip, FaChevronLeft, FaChevronRight, FaArrowDownWideShort, FaArrowUpWideShort, FaEllipsisVertical } from "react-icons/fa6";
+import { FaMagnifyingGlass, FaXmark, FaPenToSquare, FaPlus, FaList, FaGrip, FaChevronLeft, FaChevronRight, FaArrowDownWideShort, FaArrowUpWideShort, FaEllipsisVertical, FaChevronDown, FaCheck, FaLocationDot } from "react-icons/fa6";
 import toast from "react-hot-toast";
 import { userService, unitService, locationService, operatorService } from "@/services";
 import { EROLES } from "@/common/utils/roles";
@@ -26,6 +26,9 @@ export default function MaintenanceOperatorPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useSessionStorage("operator_searchTerm", "");
   const [locationFilter, setLocationFilter] = useSessionStorage("operator_locationFilter", "Semua");
+  const [isLocationDropdownOpen, setIsLocationDropdownOpen] = useState(false);
+  const [locationSearch, setLocationSearch] = useState("");
+  const locationDropdownRef = useRef<HTMLDivElement>(null);
   const [masterLocations, setMasterLocations] = useState<any[]>([]);
   const [masterUnits, setMasterUnits] = useState<any[]>([]);
   const [sortOrder, setSortOrder] = useSessionStorage<'terbaru' | 'terlama'>("operator_sortOrder", 'terbaru');
@@ -81,16 +84,40 @@ export default function MaintenanceOperatorPage() {
   }, [searchTerm, locationFilter, sortOrder]);
 
   useEffect(() => {
-    Promise.all([
-      locationService.getLocations(),
-      unitService.getAllUnits()
-    ]).then(([locData, unitData]) => {
-      setMasterLocations(locData || locData || []);
-      setMasterUnits(unitData || []);
-    }).catch(err => {
-      console.error("Failed to load options", err);
-    });
+    locationService.getLocations()
+      .then(locData => setMasterLocations(locData || []))
+      .catch(err => console.error("Failed to load locations:", err));
+
+    unitService.getAllUnitsWithDetail()
+      .then(unitData => setMasterUnits(unitData || []))
+      .catch(err => {
+        console.error("Failed to load units with detail, trying fallback:", err);
+        unitService.getAllUnits()
+          .then(unitData => setMasterUnits(unitData || []))
+          .catch(e => console.error("Failed to load units:", e));
+      });
   }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (locationDropdownRef.current && !locationDropdownRef.current.contains(e.target as Node)) {
+        setIsLocationDropdownOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsLocationDropdownOpen(false);
+      }
+    };
+    if (isLocationDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isLocationDropdownOpen]);
 
   // Modal state
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
@@ -291,16 +318,115 @@ export default function MaintenanceOperatorPage() {
                 className="w-64 rounded-2xl border border-slate-300 dark:border-white/10 bg-slate-200/50 dark:bg-white/5 py-3 pl-10 pr-4 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-amber-500/50"
               />
             </div>
-            <select
-              value={locationFilter}
-              onChange={(e) => setLocationFilter(e.target.value)}
-              className="rounded-2xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 outline-none cursor-pointer"
-            >
-              <option value="Semua">Semua Lokasi</option>
-              {masterLocations.map(loc => (
-                <option key={loc.id} value={loc.name}>{loc.name}</option>
-              ))}
-            </select>
+            {/* Custom Location Dropdown */}
+            <div className="relative" ref={locationDropdownRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLocationDropdownOpen(prev => !prev);
+                  setLocationSearch("");
+                }}
+                className={`h-[46px] min-w-[200px] max-w-[280px] rounded-2xl border transition-all px-4 py-2.5 text-sm flex items-center justify-between gap-2.5 shadow-sm cursor-pointer outline-none ${
+                  isLocationDropdownOpen
+                    ? "border-sky-500 ring-2 ring-sky-500/20 bg-white dark:bg-slate-900"
+                    : "border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900 hover:border-slate-400 dark:hover:border-white/20"
+                } text-slate-900 dark:text-slate-100`}
+                title={locationFilter === "Semua" ? "Semua Lokasi" : locationFilter}
+              >
+                <div className="flex items-center gap-2 truncate">
+                  <FaLocationDot className="text-sky-500 shrink-0 text-xs" />
+                  <span className="truncate font-medium">
+                    {locationFilter === "Semua" ? "Semua Lokasi" : locationFilter}
+                  </span>
+                </div>
+                <FaChevronDown
+                  className={`text-slate-400 dark:text-slate-500 shrink-0 text-xs transition-transform duration-200 ${
+                    isLocationDropdownOpen ? "rotate-180 text-sky-500" : ""
+                  }`}
+                />
+              </button>
+
+              {isLocationDropdownOpen && (
+                <div className="absolute right-0 top-full mt-2 z-50 w-72 sm:w-80 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden py-2 animate-in fade-in zoom-in-95 duration-150">
+                  {/* Search inside location dropdown */}
+                  <div className="px-3 pb-2 border-b border-slate-100 dark:border-white/5">
+                    <div className="relative">
+                      <FaMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs" />
+                      <input
+                        autoFocus
+                        type="text"
+                        value={locationSearch}
+                        onChange={(e) => setLocationSearch(e.target.value)}
+                        placeholder="Cari lokasi..."
+                        className="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-800/60 py-1.5 pl-8 pr-7 text-xs text-slate-900 dark:text-slate-100 outline-none focus:border-sky-500"
+                      />
+                      {locationSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setLocationSearch("")}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                        >
+                          <FaXmark size={11} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Options List */}
+                  <div className="max-h-60 overflow-y-auto px-1.5 pt-1 space-y-0.5 custom-scrollbar">
+                    {(!locationSearch || "semua lokasi".includes(locationSearch.toLowerCase())) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLocationFilter("Semua");
+                          setIsLocationDropdownOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs text-left transition-colors cursor-pointer ${
+                          locationFilter === "Semua"
+                            ? "bg-sky-50 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 font-semibold"
+                            : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        }`}
+                      >
+                        <span>Semua Lokasi</span>
+                        {locationFilter === "Semua" && <FaCheck className="text-sky-500 shrink-0 text-xs ml-2" />}
+                      </button>
+                    )}
+
+                    {masterLocations
+                      .filter(loc => loc.name?.toLowerCase().includes(locationSearch.toLowerCase()))
+                      .map((loc) => {
+                        const isSelected = locationFilter === loc.name;
+                        return (
+                          <button
+                            key={loc.id}
+                            type="button"
+                            onClick={() => {
+                              setLocationFilter(loc.name);
+                              setIsLocationDropdownOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs text-left transition-colors cursor-pointer ${
+                              isSelected
+                                ? "bg-sky-50 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 font-semibold"
+                                : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                            }`}
+                          >
+                            <span className="truncate pr-2">{loc.name}</span>
+                            {isSelected && <FaCheck className="text-sky-500 shrink-0 text-xs ml-2" />}
+                          </button>
+                        );
+                      })}
+
+                    {masterLocations.filter(loc => loc.name?.toLowerCase().includes(locationSearch.toLowerCase())).length === 0 &&
+                      locationSearch &&
+                      !"semua lokasi".includes(locationSearch.toLowerCase()) && (
+                        <div className="py-6 text-center text-xs text-slate-400 dark:text-slate-500">
+                          Lokasi tidak ditemukan
+                        </div>
+                      )}
+                  </div>
+                </div>
+              )}
+            </div>
             <button
               onClick={() => setSortOrder(prev => prev === 'terbaru' ? 'terlama' : 'terbaru')}
               className="flex shrink-0 items-center justify-center h-[46px] w-[46px] rounded-2xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-500 hover:text-sky-500 hover:bg-sky-50 dark:hover:bg-slate-800 transition-all shadow-sm dark:hover:text-sky-400"

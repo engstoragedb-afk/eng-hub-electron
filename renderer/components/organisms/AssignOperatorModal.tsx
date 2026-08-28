@@ -37,7 +37,7 @@ export default function AssignOperatorModal({
     e.preventDefault();
     if (!selectedUser) return;
 
-    const selectedUnitObj = masterUnits.find(u => u.name === assignUnit);
+    const selectedUnitObj = masterUnits.find(u => u.name === assignUnit || u.code === assignUnit);
     if (!selectedUnitObj) {
       toast.error("Silakan pilih unit yang valid dari daftar");
       return;
@@ -92,27 +92,30 @@ export default function AssignOperatorModal({
             {isUnitDropdownOpen && (
               <ul className="absolute z-10 mt-1 max-h-40 w-full overflow-y-auto rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-800 shadow-lg">
                 {masterUnits
-                  .filter(u => u.name?.toLowerCase().includes(assignUnit.toLowerCase()))
-                  .map((u, i) => (
-                    <li
-                      key={i}
-                      onMouseDown={() => {
-                        setAssignUnit(u.name);
-                        setIsUnitDropdownOpen(false);
-                        if (typeof u.location === 'string') {
-                            setAssignLocation(u.location);
-                        } else if (u.location && u.location.name) {
-                            setAssignLocation(u.location.name);
-                        } else {
-                            setAssignLocation("-");
-                        }
-                      }}
-                      className="cursor-pointer px-4 py-2 text-sm text-slate-700 hover:bg-sky-50 dark:text-slate-200 dark:hover:bg-slate-700"
-                    >
-                      {u.name}
-                    </li>
-                  ))}
-                {masterUnits.filter(u => u.name?.toLowerCase().includes(assignUnit.toLowerCase())).length === 0 && (
+                  .filter(u => (u.name || u.code || "").toLowerCase().includes(assignUnit.toLowerCase()))
+                  .map((u, i) => {
+                    const unitName = u.name || u.code || "Unknown";
+                    return (
+                      <li
+                        key={i}
+                        onMouseDown={() => {
+                          setAssignUnit(unitName);
+                          setIsUnitDropdownOpen(false);
+                          if (typeof u.location === 'string') {
+                              setAssignLocation(u.location);
+                          } else if (u.location && u.location.name) {
+                              setAssignLocation(u.location.name);
+                          } else {
+                              setAssignLocation("-");
+                          }
+                        }}
+                        className="cursor-pointer px-4 py-2 text-sm text-slate-700 hover:bg-sky-50 dark:text-slate-200 dark:hover:bg-slate-700"
+                      >
+                        {unitName}
+                      </li>
+                    );
+                  })}
+                {masterUnits.filter(u => (u.name || u.code || "").toLowerCase().includes(assignUnit.toLowerCase())).length === 0 && (
                   <li className="px-4 py-2 text-sm text-slate-500 dark:text-slate-400">Unit tidak ditemukan</li>
                 )}
               </ul>
