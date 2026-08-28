@@ -1,4 +1,4 @@
-import { FaExpand, FaSun, FaMoon, FaDownload, FaSync, FaQuestionCircle, FaTimes, FaKeyboard } from "react-icons/fa";
+import { FaExpand, FaSun, FaMoon, FaDownload, FaSync, FaQuestionCircle, FaTimes, FaKeyboard, FaSearch } from "react-icons/fa";
 import { useUIStore } from "@/store/uiStore";
 // import { useRouter } from "next/router";
 import { useTheme } from "next-themes";
@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 
 export default function TopBar() {
-  const { setFullscreen } = useUIStore();
+  const { setFullscreen, setUnitSearchOpen } = useUIStore();
   // const router = useRouter();
   // const basePath = router.pathname.startsWith("/admin") ? "/admin" : "/maintenance";
   const { theme, setTheme } = useTheme();
@@ -90,7 +90,19 @@ export default function TopBar() {
   }, [updateStatus]);
 
   return (
-    <header className="sticky top-0 z-50 flex items-center justify-end gap-5 bg-slate-50/80 dark:bg-slate-950/80 px-8 py-4 backdrop-blur-md border-b border-slate-200 dark:border-white/5 shadow-sm">
+    <header className="sticky top-0 z-50 flex items-center justify-end gap-3.5 sm:gap-5 bg-slate-50/80 dark:bg-slate-950/80 px-4 sm:px-8 py-4 backdrop-blur-md border-b border-slate-200 dark:border-white/5 shadow-sm">
+      <button 
+        onClick={() => setUnitSearchOpen(true)}
+        className="relative flex h-10 items-center gap-2 rounded-full bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-3.5 sm:px-4 text-xs font-semibold transition hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-sky-500 border border-slate-200 dark:border-white/5 shadow-xs cursor-pointer"
+        title="Cari Unit Cepat (CTRL+F / ⌘F)"
+      >
+        <FaSearch className="text-xs text-sky-500" />
+        <span className="hidden sm:inline">Cari Unit...</span>
+        <kbd className="hidden md:inline-flex px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700/80 text-[10px] font-mono text-slate-500 dark:text-slate-400 font-bold border border-slate-200 dark:border-slate-600">
+          ⌘F
+        </kbd>
+      </button>
+
       <button 
         onClick={handleUpdateClick}
         disabled={updateStatus === "checking" || updateStatus === "available" || updateStatus === "downloading" || updateStatus === "up-to-date"}
@@ -189,18 +201,10 @@ export default function TopBar() {
               <div>
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Global / Semua Halaman</h4>
                 <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-3 text-sm">
+                  <div className="font-mono bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-center font-bold text-slate-700 dark:text-slate-300 justify-self-end">CTRL / CMD + F</div>
+                  <div className="text-slate-600 dark:text-slate-300 flex items-center">Membuka pencarian cepat unit (langsung buka detail unit).</div>
                   <div className="font-mono bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-center font-bold text-slate-700 dark:text-slate-300 justify-self-end">ESC</div>
-                  <div className="text-slate-600 dark:text-slate-300 flex items-center">Keluar dari layar penuh atau keluar dari aplikasi.</div>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Halaman Servis Unit</h4>
-                <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-3 text-sm">
-                  <div className="font-mono bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-center font-bold text-slate-700 dark:text-slate-300 justify-self-end">CTRL/CMD + F</div>
-                  <div className="text-slate-600 dark:text-slate-300 flex items-center">Membuka fitur pencarian tabel (mengambang).</div>
-                  <div className="font-mono bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-center font-bold text-slate-700 dark:text-slate-300 justify-self-end">ESC</div>
-                  <div className="text-slate-600 dark:text-slate-300 flex items-center">Menutup fitur pencarian tabel.</div>
+                  <div className="text-slate-600 dark:text-slate-300 flex items-center">Menutup modal pencarian, keluar dari layar penuh, atau keluar aplikasi.</div>
                 </div>
               </div>
 

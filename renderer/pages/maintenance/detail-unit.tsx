@@ -1,6 +1,29 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
-import { FaArrowLeft, FaExpandAlt, FaTimes, FaSearchPlus, FaCrop, FaImage, FaCheckCircle, FaWrench, FaMapMarkerAlt, FaWifi, FaExclamationTriangle, FaEyeSlash, FaHistory, FaCalendarAlt, FaClock, FaTrash, FaEdit, FaEye } from "react-icons/fa";
+import { 
+  FaArrowLeft, 
+  FaExpandAlt, 
+  FaTimes, 
+  FaSearchPlus, 
+  FaCrop, 
+  FaImage, 
+  FaCheckCircle, 
+  FaWrench, 
+  FaMapMarkerAlt, 
+  FaWifi, 
+  FaExclamationTriangle, 
+  FaEyeSlash, 
+  FaHistory, 
+  FaCalendarAlt, 
+  FaClock, 
+  FaTrash, 
+  FaEdit, 
+  FaEye,
+  FaCheckSquare,
+  FaSquare,
+  FaCopy,
+  FaChevronDown
+} from "react-icons/fa";
 import toast from "react-hot-toast";
 import { EGPSStatus, APLSTATUS } from "@/common/utils/status";
 
@@ -17,6 +40,7 @@ import HoursLogDrawer from "@/components/organisms/HoursLogDrawer";
 import AplEditFormModal from "@/components/organisms/AplEditFormModal";
 import EditServiceHistoryModal from "@/components/organisms/EditServiceHistoryModal";
 import CompleteServiceModal from "@/components/organisms/CompleteServiceModal";
+import { copyUnitReportImage } from "@/utils/unitReportImage";
 
 const DetailUnitChart = dynamic(() => import("@/components/organisms/DetailUnitChart"), { 
   ssr: false, 
@@ -41,6 +65,26 @@ export default function UnitDetailPage() {
   const [editingAplItem, setEditingAplItem] = useState<{id: string, category_apl_id: string, name: string, total: number, vault?: number, input: number, schedule: number} | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [isChartModalOpen, setIsChartModalOpen] = useState(false);
+  const [isReportMode, setIsReportMode] = useState(false);
+  const [selectedReportAplIds, setSelectedReportAplIds] = useState<string[]>([]);
+  const [isCopyingReport, setIsCopyingReport] = useState(false);
+  const [showReportDropdown, setShowReportDropdown] = useState(false);
+  const reportDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close report dropdown on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (reportDropdownRef.current && !reportDropdownRef.current.contains(e.target as Node)) {
+        setShowReportDropdown(false);
+      }
+    };
+    if (showReportDropdown) {
+      document.addEventListener("mousedown", handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [showReportDropdown]);
   const [isChartVisible, setIsChartVisible] = useState(false);
   const [isEditingStatus, setIsEditingStatus] = useState(false);
   const [typeUnits, setTypeUnits] = useState<any[]>([]);
@@ -460,6 +504,53 @@ export default function UnitDetailPage() {
 
   const sortedAplData = unit.aplData || [];
 
+  const handleCopyAllReportImage = async () => {
+    setShowReportDropdown(false);
+    setIsCopyingReport(true);
+    const allIds = sortedAplData.map((item: any) => item.category_apl_id || item.id);
+    await copyUnitReportImage(apiUnit || unit, sortedAplData, allIds);
+    setIsCopyingReport(false);
+    setIsReportMode(false);
+  };
+
+  const handleCopySelectedReportImage = async () => {
+    if (selectedReportAplIds.length === 0) {
+      toast.error("Pilih minimal 1 komponen untuk disalin.");
+      return;
+    }
+    setShowReportDropdown(false);
+    setIsCopyingReport(true);
+    const success = await copyUnitReportImage(apiUnit || unit, sortedAplData, selectedReportAplIds);
+    setIsCopyingReport(false);
+    if (success) {
+      setIsReportMode(false);
+    }
+  };
+
+  const handleToggleSelectionMode = () => {
+    if (!isReportMode) {
+      setIsReportMode(true);
+      setSelectedReportAplIds(sortedAplData.map((item: any) => item.category_apl_id || item.id));
+    } else {
+      setIsReportMode(false);
+    }
+    setShowReportDropdown(false);
+  };
+
+  const toggleReportAplId = (id: string) => {
+    setSelectedReportAplIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
+
+  const toggleAllReportAplIds = () => {
+    if (selectedReportAplIds.length === sortedAplData.length) {
+      setSelectedReportAplIds([]);
+    } else {
+      setSelectedReportAplIds(sortedAplData.map((item: any) => item.category_apl_id || item.id));
+    }
+  };
+
   const chartData = {
     labels: sortedAplData.map((item: any) => (!item.total || item.total === 0) ? `${item.name} *` : item.name),
     datasets: [
@@ -468,10 +559,10 @@ export default function UnitDetailPage() {
         data: sortedAplData.map((item: any) => item.input || 0),
         backgroundColor: sortedAplData.map((item: any) => {
           const val = item.input || 0;
-          if (val <= -100) return '#e90c0cff'; 
-          if (val < 0) return '#e7791aff'; 
-          if (val < 50) return '#fbbf24'; 
-          return '#34d399'; 
+          if (val < 0) return '#ef4444'; // CRITICAL
+          if (val <= 10) return '#f97316'; // URGENT
+          if (val <= 50) return '#0284c7'; // ATTENTION
+          return '#10b981'; // NORMAL
         }),
         borderRadius: 8,
         barThickness: 16,
@@ -496,6 +587,11 @@ export default function UnitDetailPage() {
         const index = elements[0].index;
         const selectedItem = sortedAplData[index];
         if (selectedItem) {
+          if (isReportMode) {
+            toggleReportAplId(selectedItem.category_apl_id || selectedItem.id);
+            return;
+          }
+
           const isUnconfigured = (!selectedItem.total || selectedItem.total === 0) && (!selectedItem.vault || selectedItem.vault === 0);
           const isUnder50 = (selectedItem.input ?? 0) < 50;
 
@@ -735,13 +831,112 @@ export default function UnitDetailPage() {
                   </button>
                 </div>
                 {activeMainTab === 'JADWAL' && (
-                  <button
-                    onClick={() => setIsChartModalOpen(true)}
-                    className="p-3 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 transition flex items-center justify-center text-slate-600 dark:text-slate-300 cursor-pointer"
-                    title="Perbesar Grafik"
-                  >
-                    <FaExpandAlt />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {/* Unified Single Report Menu Button */}
+                    <div className="relative" ref={reportDropdownRef}>
+                      {isReportMode ? (
+                        <button
+                          type="button"
+                          onClick={() => setShowReportDropdown((prev) => !prev)}
+                          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs shadow-md transition cursor-pointer active:scale-95"
+                          title="Menu Salin Gambar"
+                        >
+                          <FaCopy size={12} />
+                          <span>Salin ({selectedReportAplIds.length})</span>
+                          <FaChevronDown size={10} className={`transition-transform duration-200 ${showReportDropdown ? "rotate-180" : ""}`} />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setShowReportDropdown((prev) => !prev)}
+                          className="p-3 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-sky-100 hover:text-sky-600 dark:hover:bg-sky-950/60 dark:hover:text-sky-400 transition flex items-center justify-center text-slate-600 dark:text-slate-300 cursor-pointer shadow-2xs"
+                          title="Menu Salin Gambar Laporan"
+                        >
+                          <FaImage size={15} />
+                        </button>
+                      )}
+
+                      {/* Dropdown Menu */}
+                      {showReportDropdown && (
+                        <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl p-1.5 z-30 animate-in fade-in zoom-in-95 duration-150">
+                          {isReportMode ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={handleCopySelectedReportImage}
+                                disabled={selectedReportAplIds.length === 0 || isCopyingReport}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/50 transition cursor-pointer disabled:opacity-50 text-left"
+                              >
+                                <FaCopy size={13} />
+                                <span>Salin Pilihan ({selectedReportAplIds.length})</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={toggleAllReportAplIds}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer text-left"
+                              >
+                                {selectedReportAplIds.length === sortedAplData.length ? (
+                                  <>
+                                    <FaSquare size={13} className="text-slate-400" />
+                                    <span>Batal Pilih Semua</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <FaCheckSquare size={13} className="text-sky-500" />
+                                    <span>Pilih Semua Komponen</span>
+                                  </>
+                                )}
+                              </button>
+
+                              <div className="my-1 border-t border-slate-100 dark:border-white/5" />
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsReportMode(false);
+                                  setShowReportDropdown(false);
+                                }}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer text-left"
+                              >
+                                <FaTimes size={13} />
+                                <span>Tutup Mode Centang</span>
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={handleCopyAllReportImage}
+                                disabled={isCopyingReport}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/50 transition cursor-pointer text-left"
+                              >
+                                <FaCopy size={13} />
+                                <span>Salin Semua Komponen ({sortedAplData.length})</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={handleToggleSelectionMode}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer text-left"
+                              >
+                                <FaCheckSquare size={13} className="text-sky-500" />
+                                <span>Pilih Komponen Tertentu...</span>
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={() => setIsChartModalOpen(true)}
+                      className="p-3 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 transition flex items-center justify-center text-slate-600 dark:text-slate-300 cursor-pointer shadow-2xs"
+                      title="Perbesar Grafik"
+                    >
+                      <FaExpandAlt size={15} />
+                    </button>
+                  </div>
                 )}
                 {activeMainTab === 'HISTORY_SERVICE' && (
                   <button
@@ -756,8 +951,37 @@ export default function UnitDetailPage() {
               </div>
               <div className="mt-4">
                 {activeMainTab === 'JADWAL' ? (
-                  <div className="w-full relative" style={{ height: `${sortedAplData.length * 45 + 60}px` }}>
-                    <DetailUnitChart chartData={chartData} chartOptions={chartOptions} />
+                  <div className="flex items-stretch w-full">
+                    {isReportMode && (
+                      <div 
+                        className="flex flex-col justify-between pt-[16px] pb-[38px] pr-2 shrink-0 animate-in fade-in slide-in-from-left duration-200 select-none"
+                        style={{ height: `${sortedAplData.length * 45 + 60}px` }}
+                      >
+                        {sortedAplData.map((item: any) => {
+                          const id = item.category_apl_id || item.id;
+                          const isChecked = selectedReportAplIds.includes(id);
+                          return (
+                            <button
+                              key={id}
+                              type="button"
+                              onClick={() => toggleReportAplId(id)}
+                              className="flex items-center justify-center p-1 rounded-md hover:bg-sky-50 dark:hover:bg-sky-950/40 transition cursor-pointer"
+                              style={{ height: '45px' }}
+                              title={isChecked ? `Hapus ${item.name} dari salinan` : `Tambahkan ${item.name} ke salinan`}
+                            >
+                              {isChecked ? (
+                                <FaCheckSquare className="text-sky-500 text-lg" />
+                              ) : (
+                                <FaSquare className="text-slate-300 dark:text-slate-600 text-lg" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <div className="flex-1 w-full relative" style={{ height: `${sortedAplData.length * 45 + 60}px` }}>
+                      <DetailUnitChart chartData={chartData} chartOptions={chartOptions} />
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-4 animate-in fade-in duration-200">

@@ -46,18 +46,6 @@ const navGroups = [
         icon: <FaUserCog />,
         activeBase: "/maintenance/operator",
       },
-      // {
-      //   href: "/maintenance/servis",
-      //   label: "Servis",
-      //   icon: <FaTools />,
-      //   activeBase: "/maintenance/servis",
-      // },
-      // {
-      //   href: "/maintenance/perbaikan",
-      //   label: "Breakdown",
-      //   icon: <FaList />,
-      //   activeBase: "/maintenance/perbaikan",
-      // },
     ],
   },
 ];

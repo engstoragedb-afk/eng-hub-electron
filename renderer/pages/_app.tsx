@@ -4,6 +4,7 @@ import { useRouter } from 'next/router'
 import { AnimatePresence, motion } from 'framer-motion'
 import Sidebar from "@/components/organisms/Sidebar"
 import TopBar from "@/components/organisms/TopBar"
+import GlobalUnitSearchModal from "@/components/organisms/GlobalUnitSearchModal"
 import { useUIStore } from "@/store/uiStore"
 
 import { Toaster } from 'react-hot-toast'
@@ -23,11 +24,22 @@ function MyApp({ Component, pageProps }: AppProps) {
   const isAdmin = router.pathname.startsWith('/admin')
   const isMaintenance = router.pathname.startsWith('/maintenance')
   const hasSidebar = isAdmin || isMaintenance
-  const { isSidebarOpen, isFullscreen, setFullscreen } = useUIStore()
+  const { isSidebarOpen, isFullscreen, setFullscreen, isUnitSearchOpen, setUnitSearchOpen } = useUIStore()
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Global CTRL+F / CMD+F listener for Quick Unit Search
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'f' || e.key === 'F')) {
+        e.preventDefault();
+        setUnitSearchOpen(true);
+        return;
+      }
+
       if (e.key === 'Escape') {
+        if (isUnitSearchOpen) {
+          setUnitSearchOpen(false);
+          return;
+        }
         if (isFullscreen) {
           setFullscreen(false);
         } else {
@@ -39,7 +51,7 @@ function MyApp({ Component, pageProps }: AppProps) {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isFullscreen, setFullscreen])
+  }, [isFullscreen, isUnitSearchOpen, setFullscreen, setUnitSearchOpen])
 
   const showNav = hasSidebar && !isFullscreen
 
@@ -65,6 +77,7 @@ function MyApp({ Component, pageProps }: AppProps) {
           },
         }}
       />
+      <GlobalUnitSearchModal />
       {showNav && <Sidebar heading={isAdmin ? "Admin" : "Maintenance"} />}
       
       <div className={`flex flex-col min-h-screen transition-all duration-300 ${showNav ? (isSidebarOpen ? "ml-[260px]" : "ml-20") : ""}`}>
