@@ -9,6 +9,8 @@ export type IUnit = IEntity<{
     hm: number;
     hours: number;
     status: string;
+    pic?: string;
+    brand?: string;
     manufacture_year: number;
     serial_number?: string | null;
     gps_vendor?: string | null;
@@ -29,6 +31,8 @@ export type IUnitCreate = IEntityCreate<{
     hm: number;
     hours: number;
     status?: string;
+    pic?: string;
+    brand?: string;
     manufacture_year: number;
     serial_number?: string | null;
     gps_vendor?: string | null;
@@ -57,6 +61,8 @@ export class Unit extends Entity<IUnit, IUnitCreate> {
     get hm(): number { return this._props.hm; }
     get hours(): number { return this._props.hours; }
     get status(): string { return this._props.status || 'READY'; }
+    get pic(): string | undefined { return this._props.pic; }
+    get brand(): string | undefined { return this._props.brand; }
     get manufacture_year(): number { return this._props.manufacture_year; }
     get serial_number(): string | null { return this._props.serial_number || null; }
     get gps_vendor(): string | null { return this._props.gps_vendor || null; }
@@ -78,6 +84,8 @@ export class Unit extends Entity<IUnit, IUnitCreate> {
             hm: this.hm,
             hours: this.hours,
             status: this.status,
+            pic: this.pic,
+            brand: this.brand,
             manufacture_year: this.manufacture_year,
             serial_number: this.serial_number,
             gps_vendor: this.gps_vendor,

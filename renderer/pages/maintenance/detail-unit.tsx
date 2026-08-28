@@ -44,8 +44,11 @@ export default function UnitDetailPage() {
   const [isChartVisible, setIsChartVisible] = useState(false);
   const [isEditingStatus, setIsEditingStatus] = useState(false);
   const [typeUnits, setTypeUnits] = useState<any[]>([]);
+  const [isEditingBrand, setIsEditingBrand] = useState(false);
+  const [brandInput, setBrandInput] = useState("");
   const [isEditingType, setIsEditingType] = useState(false);
   const [typeInput, setTypeInput] = useState("");
+  const [isEditingPic, setIsEditingPic] = useState(false);
   const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [locationInput, setLocationInput] = useState("");
   const [locationOptions, setLocationOptions] = useState<any[]>([]);
@@ -974,6 +977,49 @@ export default function UnitDetailPage() {
               </div>
               <div className="space-y-3 text-sm text-slate-700 dark:text-slate-300 pt-4">
                 <div className="flex items-center justify-between">
+                  <span>Brand</span>
+                  <span
+                    className="font-semibold text-slate-900 dark:text-slate-100 cursor-pointer hover:text-sky-500 transition"
+                    onDoubleClick={() => {
+                      setBrandInput(unit.brand || "");
+                      setIsEditingBrand(true);
+                    }}
+                    title="Klik 2 kali untuk mengedit brand"
+                  >
+                    {isEditingBrand ? (
+                      <input
+                        autoFocus
+                        type="text"
+                        value={brandInput}
+                        onChange={(e) => setBrandInput(e.target.value)}
+                        onBlur={() => {
+                          setIsEditingBrand(false);
+                          const trimmed = brandInput.trim();
+                          if (trimmed !== (unit.brand || "")) {
+                            handleUpdateUnit({ brand: trimmed || null });
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            setIsEditingBrand(false);
+                            const trimmed = brandInput.trim();
+                            if (trimmed !== (unit.brand || "")) {
+                              handleUpdateUnit({ brand: trimmed || null });
+                            }
+                          } else if (e.key === 'Escape') {
+                            setIsEditingBrand(false);
+                          }
+                        }}
+                        className="w-48 rounded-lg border border-sky-400 dark:border-sky-500 bg-white dark:bg-slate-900 px-2.5 py-1 text-xs text-slate-900 dark:text-slate-100 shadow-sm outline-none text-right font-semibold"
+                        placeholder="Ketik brand..."
+                      />
+                    ) : (
+                      unit.brand || "-"
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
                   <span>Type Unit</span>
                   <span
                     className="font-semibold text-slate-900 dark:text-slate-100 cursor-pointer"
@@ -995,7 +1041,7 @@ export default function UnitDetailPage() {
                       >
                         <div className="w-56 rounded-lg border border-sky-400 dark:border-sky-500 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs text-slate-900 dark:text-slate-100 shadow-sm flex justify-between items-center">
                             <input 
-                              autoFocus
+                               autoFocus
                               type="text" 
                               value={typeInput} 
                               onChange={(e) => setTypeInput(e.target.value)}
@@ -1041,6 +1087,38 @@ export default function UnitDetailPage() {
                       </div>
                     ) : (
                       typeof unit.type === 'string' ? unit.type : (unit.type?.name || "-")
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>PIC</span>
+                  <span
+                    className="font-semibold text-slate-900 dark:text-slate-100 cursor-pointer hover:text-sky-500 transition"
+                    onDoubleClick={() => setIsEditingPic(true)}
+                    title="Klik 2 kali untuk mengedit PIC"
+                  >
+                    {isEditingPic ? (
+                      <select
+                        autoFocus
+                        value={unit.pic || ""}
+                        onChange={(e) => {
+                          setIsEditingPic(false);
+                          const val = e.target.value;
+                          if (val !== (unit.pic || "")) {
+                            handleUpdateUnit({ pic: val || null });
+                          }
+                        }}
+                        onBlur={() => setIsEditingPic(false)}
+                        className="rounded-lg border border-sky-400 dark:border-sky-500 bg-white dark:bg-slate-900 px-2.5 py-1 text-xs text-slate-900 dark:text-slate-100 shadow-sm outline-none cursor-pointer font-semibold"
+                      >
+                        <option value="">-</option>
+                        <option value="KOBELCO">KOBELCO</option>
+                        <option value="ENG">ENG</option>
+                        <option value="UT">UT</option>
+                        <option value="GM">GM</option>
+                      </select>
+                    ) : (
+                      unit.pic || "-"
                     )}
                   </span>
                 </div>

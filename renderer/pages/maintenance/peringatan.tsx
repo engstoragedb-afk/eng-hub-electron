@@ -4,8 +4,10 @@ import MaintenanceLayout from "@/components/organisms/MaintenanceLayout";
 import SectionHeading from "@/components/atoms/SectionHeading";
 import { unitService } from "@/services/unit-service";
 import { useRouter } from "next/router";
-import { FaExclamationTriangle, FaChevronRight, FaWrench, FaTools, FaUndo, FaSearch, FaTimes, FaCheckCircle } from "react-icons/fa";
+import { FaExclamationTriangle, FaChevronRight, FaWrench, FaTools, FaUndo, FaSearch, FaTimes, FaCheckCircle, FaPrint } from "react-icons/fa";
+import { createPortal } from "react-dom";
 import CompleteServiceModal from "@/components/organisms/CompleteServiceModal";
+import PrintPreviewModal from "@/components/organisms/PrintPreviewModal";
 
 const categoryImages: Record<string, string> = {
   EXCAVATOR: "/units/exavator.png",
@@ -25,6 +27,12 @@ export default function PeringatanServisPage() {
   const [activeLevelTab, setActiveLevelTab] = useState("Semua Level");
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [servicingItem, setServicingItem] = useState<{ item: any; unit: any } | null>(null);
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const tabs = ["Semua", "350", "500", "1000", "2000", "4000", "5000", "NORMAL"];
   
@@ -55,10 +63,12 @@ export default function PeringatanServisPage() {
       const aplItems = (unit.aplData || []).map((apl: any) => {
         const input = apl.input ?? 0;
         const vault = apl.vault ?? 0;
+        const total = apl.total ?? 0;
+        const isUnconfigured = (!apl.total || apl.total === 0) && (!apl.vault || apl.vault === 0);
         let level: 'CRITICAL' | 'URGENT' | 'ATTENTION' | 'NORMAL' = 'NORMAL';
         let message = 'Dalam batas normal';
 
-        if (!isZeroHours && vault > 0) {
+        if (!isZeroHours && vault > 0 && !isUnconfigured) {
           if (input < 0) {
             level = 'CRITICAL';
             message = 'Telah melewati batas rekomendasi';
@@ -79,43 +89,66 @@ export default function PeringatanServisPage() {
           level,
           message,
           input,
-          vault
+          vault,
+          total,
+          isUnconfigured
         };
       });
 
-      // Determine unit's most severe level
+      // Warning items are strictly those configured (not unconfigured, vault > 0) and input < 50
+      const warningItems = isZeroHours 
+        ? [] 
+        : aplItems.filter((i: any) => !i.isUnconfigured && (i.vault ?? 0) > 0 && (i.input < 0 || (i.input > 0 && i.input < 50)));
+
+      // Determine unit's most severe level strictly based on valid warningItems
       let mostSevereLevel: 'CRITICAL' | 'URGENT' | 'ATTENTION' | 'NORMAL' = 'NORMAL';
-      if (!isZeroHours) {
-        if (aplItems.some((i: any) => i.level === 'CRITICAL')) {
+      if (!isZeroHours && warningItems.length > 0) {
+        if (warningItems.some((i: any) => i.level === 'CRITICAL')) {
           mostSevereLevel = 'CRITICAL';
-        } else if (aplItems.some((i: any) => i.level === 'URGENT')) {
+        } else if (warningItems.some((i: any) => i.level === 'URGENT')) {
           mostSevereLevel = 'URGENT';
-        } else if (aplItems.some((i: any) => i.level === 'ATTENTION')) {
+        } else if (warningItems.some((i: any) => i.level === 'ATTENTION')) {
           mostSevereLevel = 'ATTENTION';
         }
       }
 
-      // Warning items are those with vault > 0 and (input < 0 or (input > 0 and input < 50)).
-      const warningItems = isZeroHours 
-        ? [] 
-        : aplItems.filter((i: any) => (i.vault ?? 0) > 0 && (i.input < 0 || (i.input > 0 && i.input < 50)));
+      // Calculate service badge from most urgent warning item
+      let calculatedService = 'NORMAL';
+      if (!isZeroHours && warningItems.length > 0) {
+        const mostCriticalWarning = warningItems.reduce((prev: any, curr: any) => (prev.input < curr.input ? prev : curr), warningItems[0]);
+        calculatedService = mostCriticalWarning.vault ? String(mostCriticalWarning.vault) : 'NORMAL';
+      }
 
       const categoryName = unit.category?.name || (typeof unit.category === 'string' ? unit.category : '');
       const imageUrl = unit.image || (categoryName ? categoryImages[categoryName] : '');
 
+      const brandVal = unit.brand || '-';
+      const typeVal = unit.type?.name || 
+        (typeof unit.type === 'string' && unit.type ? unit.type : '') || 
+        unit.type_unit?.name || 
+        (typeof unit.type_unit === 'string' ? unit.type_unit : '') || 
+        categoryName || 
+        '-';
+
       return {
         id: unit.id,
+        code: unit.code || unit.name || 'Unknown Unit',
         unit_name: unit.code || unit.name || 'Unknown Unit',
+        brand: brandVal,
         category: categoryName,
-        type: unit.type?.name || (typeof unit.type === 'string' ? unit.type : ''),
+        type: typeVal,
+        pic: unit.pic || '-',
+        location: unit.location?.name || (typeof unit.location === 'string' ? unit.location : '') || '-',
+        operator: unit.operator?.full_name || unit.operator?.name || (typeof unit.operator === 'string' ? unit.operator : '') || '-',
         image: imageUrl,
-        service: (isZeroHours || mostSevereLevel === 'NORMAL') ? 'NORMAL' : (unit.service || 'NORMAL'),
+        service: calculatedService,
         hours: unit.hours,
         hm: unit.hm,
         status: unit.status,
         mostSevereLevel,
         warningItems,
-        allItems: aplItems
+        allItems: aplItems.filter((i: any) => !i.isUnconfigured && (i.vault ?? 0) > 0),
+        aplData: unit.aplData
       };
     });
   }, [units]);
@@ -238,6 +271,16 @@ export default function PeringatanServisPage() {
                   </button>
                 )}
               </div>
+
+              {/* Tombol Cetak Plan PS */}
+              <button
+                onClick={() => setShowPrintModal(true)}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-sky-500 hover:bg-sky-600 active:scale-95 text-xs font-bold text-white shadow-md shadow-sky-500/20 transition cursor-pointer shrink-0"
+                title="Cetak Laporan Plan PS"
+              >
+                <FaPrint size={13} />
+                <span>Cetak Plan PS</span>
+              </button>
 
               {isFilterActive && (
                 <button
@@ -609,6 +652,21 @@ export default function PeringatanServisPage() {
           )}
         </section>
       </MaintenanceLayout>
+
+      {/* Print Preview Modal Plan PS */}
+      {showPrintModal && mounted && createPortal(
+        <PrintPreviewModal
+          units={activeLevelTab === "Semua Level" 
+            ? filteredArray.filter(u => u.mostSevereLevel !== 'NORMAL') 
+            : filteredArray
+          }
+          aplColumns={[]}
+          categoryName="plan-ps-peringatan"
+          isPlanPSMode={true}
+          onClose={() => setShowPrintModal(false)}
+        />,
+        document.body
+      )}
     </React.Fragment>
   );
 }
