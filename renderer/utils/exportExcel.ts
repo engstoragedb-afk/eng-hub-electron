@@ -51,7 +51,11 @@ export const exportServisToExcel = async ({
     });
 
     if (isPlanPSMode) {
-      const urgentApls = u.aplData ? u.aplData.filter((a: any) => a.input < 50) : [];
+      const urgentApls = u.aplData ? u.aplData.filter((a: any) => {
+        const isUnconfigured = (!a.total || a.total === 0) && (!a.vault || a.vault === 0);
+        const hasVault = (a.vault ?? 0) > 0;
+        return hasVault && !isUnconfigured && (a.input ?? 0) < 50;
+      }) : [];
       const defaultUrgentApl = urgentApls.length > 0 ? urgentApls.reduce((prev: any, curr: any) => (prev.input < curr.input) ? prev : curr, urgentApls[0]) : null;
       const selectedAplId = psSelectedApls[u.id] || defaultUrgentApl?.category_apl_id;
       const urgentApl = urgentApls.find((a: any) => a.category_apl_id === selectedAplId) || defaultUrgentApl;

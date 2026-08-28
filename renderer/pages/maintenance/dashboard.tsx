@@ -66,10 +66,11 @@ export default function MaintenanceDashboard() {
           const aplItems = (unit.aplData || []).map((apl: any) => {
             const input = apl.input ?? 0;
             const vault = apl.vault ?? 0;
+            const isUnconfigured = (!apl.total || apl.total === 0) && (!apl.vault || apl.vault === 0);
             let level: 'CRITICAL' | 'URGENT' | 'ATTENTION' | 'NORMAL' = 'NORMAL';
             let message = 'Dalam batas normal';
 
-            if (!isZeroHours && vault > 0) {
+            if (!isZeroHours && vault > 0 && !isUnconfigured) {
               if (input < 0) {
                 level = 'CRITICAL';
                 message = 'Telah melewati batas rekomendasi';
@@ -90,18 +91,19 @@ export default function MaintenanceDashboard() {
               level,
               message,
               input,
-              vault
+              vault,
+              isUnconfigured
             };
           });
 
           // Determine most severe item and unit status
           let mostSevereLevel: 'CRITICAL' | 'URGENT' | 'ATTENTION' | 'NORMAL' = 'NORMAL';
-          let mostSevereItem = aplItems[0] || null;
+          let mostSevereItem = aplItems.find((i: any) => !i.isUnconfigured && (i.vault ?? 0) > 0) || aplItems[0] || null;
 
           if (!isZeroHours) {
-            const criticalItems = aplItems.filter((i: any) => i.level === 'CRITICAL');
-            const urgentItems = aplItems.filter((i: any) => i.level === 'URGENT');
-            const attentionItems = aplItems.filter((i: any) => i.level === 'ATTENTION');
+            const criticalItems = aplItems.filter((i: any) => !i.isUnconfigured && (i.vault ?? 0) > 0 && i.level === 'CRITICAL');
+            const urgentItems = aplItems.filter((i: any) => !i.isUnconfigured && (i.vault ?? 0) > 0 && i.level === 'URGENT');
+            const attentionItems = aplItems.filter((i: any) => !i.isUnconfigured && (i.vault ?? 0) > 0 && i.level === 'ATTENTION');
 
             if (criticalItems.length > 0) {
               mostSevereLevel = 'CRITICAL';
@@ -114,11 +116,11 @@ export default function MaintenanceDashboard() {
               mostSevereItem = attentionItems.sort((a: any, b: any) => a.input - b.input)[0];
             } else {
               mostSevereLevel = 'NORMAL';
-              mostSevereItem = aplItems.sort((a: any, b: any) => a.input - b.input)[0] || null;
+              mostSevereItem = aplItems.find((i: any) => !i.isUnconfigured && (i.vault ?? 0) > 0) || aplItems[0] || null;
             }
           } else {
             mostSevereLevel = 'NORMAL';
-            mostSevereItem = aplItems[0] || null;
+            mostSevereItem = aplItems.find((i: any) => !i.isUnconfigured && (i.vault ?? 0) > 0) || aplItems[0] || null;
           }
 
           const priorityOrder: Record<string, number> = {
@@ -131,18 +133,23 @@ export default function MaintenanceDashboard() {
           const categoryName = unit.category?.name || (typeof unit.category === 'string' ? unit.category : '');
           const imageUrl = unit.image || (categoryName ? categoryImages[categoryName] : '');
 
+          let calculatedService = 'NORMAL';
+          if (!isZeroHours && mostSevereLevel !== 'NORMAL' && mostSevereItem?.vault) {
+            calculatedService = String(mostSevereItem.vault);
+          }
+
           return {
             id: unit.id,
             unit_name: unit.code || unit.name || 'Unknown Unit',
             category: categoryName,
             type: unit.type?.name || (typeof unit.type === 'string' ? unit.type : ''),
             image: imageUrl,
-            service: (isZeroHours || mostSevereLevel === 'NORMAL') ? 'NORMAL' : (unit.service || 'NORMAL'),
+            service: (isZeroHours || mostSevereLevel === 'NORMAL') ? 'NORMAL' : calculatedService,
             hours: unit.hours,
             mostSevereLevel,
             priority: priorityOrder[mostSevereLevel] || 5,
             targetItem: mostSevereItem,
-            dueCount: isZeroHours ? 0 : aplItems.filter((i: any) => (i.vault ?? 0) > 0 && (i.input < 0 || (i.input > 0 && i.input < 50))).length
+            dueCount: isZeroHours ? 0 : aplItems.filter((i: any) => !i.isUnconfigured && (i.vault ?? 0) > 0 && (i.input < 0 || (i.input > 0 && i.input < 50))).length
           };
         });
 

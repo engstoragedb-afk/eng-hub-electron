@@ -247,14 +247,32 @@ export default function MaintenanceUnitList() {
     unitService.getUnitsByCategory(id as string, params)
       .then((res: any) => {
         if (res && res.data) {
-          const formatted = res.data.map((item: any) => ({
-            ...item,
-            category: item.category?.name || category,
-            status: item.status === "Breakdown" ? "Perbaikan" : item.status,
-            hm: item.hm || 0,
-            hours: item.hours || 0,
-            location: item.location?.name || item.location || "Site A",
-          }));
+          const formatted = res.data.map((item: any) => {
+            const isZeroHours = !item.hours || item.hours === 0;
+            const validAplData = (item.aplData || []).filter((a: any) => {
+              const isUnconfigured = (!a.total || a.total === 0) && (!a.vault || a.vault === 0);
+              const hasVault = (a.vault ?? 0) > 0;
+              return hasVault && !isUnconfigured;
+            });
+            const warningItems = isZeroHours ? [] : validAplData.filter((a: any) => (a.input ?? 0) < 50);
+
+            let calculatedService = 'NORMAL';
+            if (!isZeroHours && warningItems.length > 0) {
+              const mostCritical = warningItems.reduce((prev: any, curr: any) => (prev.input < curr.input ? prev : curr), warningItems[0]);
+              calculatedService = mostCritical.vault ? String(mostCritical.vault) : 'NORMAL';
+            }
+
+            return {
+              ...item,
+              category: item.category?.name || category,
+              status: item.status === "Breakdown" ? "Perbaikan" : item.status,
+              hm: item.hm || 0,
+              hours: item.hours || 0,
+              location: item.location?.name || item.location || "Site A",
+              service: calculatedService,
+              warningItems: warningItems,
+            };
+          });
           setUnits(formatted);
           setTotalRow(res.totalRow || 0);
         }
@@ -469,7 +487,11 @@ export default function MaintenanceUnitList() {
                 
                 <div className="p-6 max-h-[60vh] overflow-y-auto">
                   <div className="space-y-4">
-                    {selectedWarningUnit.aplData?.filter((d: any) => d.input < 50).map((item: any, i: number) => (
+                    {selectedWarningUnit.aplData?.filter((d: any) => {
+                      const isUnconfigured = (!d.total || d.total === 0) && (!d.vault || d.vault === 0);
+                      const hasVault = (d.vault ?? 0) > 0;
+                      return hasVault && !isUnconfigured && (d.input ?? 0) < 50;
+                    }).map((item: any, i: number) => (
                       <div key={i} className="flex flex-col gap-1 p-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
                         <div className="font-semibold text-slate-800 dark:text-slate-200 text-sm">
                           {item.name}
@@ -483,7 +505,11 @@ export default function MaintenanceUnitList() {
                       </div>
                     ))}
                     
-                    {(!selectedWarningUnit.aplData || selectedWarningUnit.aplData.filter((d: any) => d.input < 50).length === 0) && (
+                    {(!selectedWarningUnit.aplData || selectedWarningUnit.aplData.filter((d: any) => {
+                      const isUnconfigured = (!d.total || d.total === 0) && (!d.vault || d.vault === 0);
+                      const hasVault = (d.vault ?? 0) > 0;
+                      return hasVault && !isUnconfigured && (d.input ?? 0) < 50;
+                    }).length === 0) && (
                       <div className="text-center text-slate-500 dark:text-slate-400 py-4 text-sm italic">
                         Tidak ada detail peringatan servis yang tersedia.
                       </div>
