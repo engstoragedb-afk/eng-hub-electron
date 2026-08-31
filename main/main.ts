@@ -1,5 +1,6 @@
 import path from 'path'
-import { app, ipcMain, dialog } from 'electron'
+import fs from 'fs'
+import { app, ipcMain, dialog, BrowserWindow } from 'electron'
 import pkg from 'electron-updater'
 const { autoUpdater } = pkg;
 import serve from 'electron-serve'
@@ -100,6 +101,61 @@ ipcMain.handle('request-quit', () => {
   
   if (response === 1) {
     app.quit();
+  }
+});
+
+ipcMain.handle('save-pdf', async (_event, { html, landscape, filename, paperSize = 'A4' }) => {
+  let pdfWin: BrowserWindow | null = null;
+  try {
+    pdfWin = new BrowserWindow({
+      show: false,
+      width: 1200,
+      height: 900,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+      }
+    });
+
+    await pdfWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+
+    // Wait for DOM & CSS rendering to complete
+    await new Promise((resolve) => setTimeout(resolve, 350));
+
+    const pdfData = await pdfWin.webContents.printToPDF({
+      landscape: Boolean(landscape),
+      pageSize: paperSize,
+      printBackground: true,
+      preferCSSPageSize: true,
+    });
+
+    if (pdfWin && !pdfWin.isDestroyed()) {
+      pdfWin.destroy();
+      pdfWin = null;
+    }
+
+    const windows = BrowserWindow.getAllWindows().filter(w => !w.isDestroyed());
+    const parentWin = windows.length > 0 ? windows[0] : null;
+
+    const { filePath, canceled } = await dialog.showSaveDialog(parentWin as any, {
+      title: 'Simpan Dokumen Laporan (PDF)',
+      defaultPath: filename || 'Laporan_Peringatan.pdf',
+      filters: [
+        { name: 'Dokumen PDF (*.pdf)', extensions: ['pdf'] }
+      ]
+    });
+
+    if (!canceled && filePath) {
+      await fs.promises.writeFile(filePath, pdfData);
+      return { success: true, filePath };
+    }
+    return { canceled: true };
+  } catch (err: any) {
+    console.error('Failed to save PDF:', err);
+    if (pdfWin && !pdfWin.isDestroyed()) {
+      pdfWin.destroy();
+    }
+    return { success: false, error: err.message };
   }
 });
 
