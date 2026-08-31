@@ -59,10 +59,8 @@ ipcMain.handle('window-maximize', () => {
   if (win) {
     if (win.isFullScreen()) {
       win.setFullScreen(false);
-    } else if (win.isMaximized()) {
-      win.unmaximize();
     } else {
-      win.maximize();
+      win.setFullScreen(true);
     }
   }
 });
