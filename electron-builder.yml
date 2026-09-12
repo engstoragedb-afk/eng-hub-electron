@@ -24,6 +24,7 @@ win:
         - ia32
   icon: resources/icon.ico
 nsis:
+  artifactName: "${productName}-Setup-${version}-${arch}.${ext}"
   oneClick: false
   allowToChangeInstallationDirectory: true
   installerIcon: resources/icon.ico
