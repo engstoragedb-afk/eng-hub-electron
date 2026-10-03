@@ -104,6 +104,51 @@ ipcMain.handle('request-quit', () => {
   }
 });
 
+
+// Temporary Local Evidence Handlers (Background Sync & Offline Fallback)
+ipcMain.handle("evidence-save-temp", async (_event, { taskId, filename, base64Data }) => {
+  try {
+    const tempDir = path.join(app.getPath("userData"), "temp_evidence", String(taskId));
+    await fs.promises.mkdir(tempDir, { recursive: true });
+    const filePath = path.join(tempDir, filename);
+    const cleanBase64 = base64Data.replace(/^data:image\/\w+;base64,/, "");
+    await fs.promises.writeFile(filePath, Buffer.from(cleanBase64, "base64"));
+    return { success: true, filePath };
+  } catch (err: any) {
+    console.error("Failed to save temp evidence:", err);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle("evidence-delete-temp", async (_event, { taskId }) => {
+  try {
+    const tempDir = path.join(app.getPath("userData"), "temp_evidence", String(taskId));
+    if (fs.existsSync(tempDir)) {
+      await fs.promises.rm(tempDir, { recursive: true, force: true });
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle("evidence-get-temp", async (_event, { taskId }) => {
+  try {
+    const tempDir = path.join(app.getPath("userData"), "temp_evidence", String(taskId));
+    if (!fs.existsSync(tempDir)) return { files: [] };
+    const filenames = await fs.promises.readdir(tempDir);
+    const files = [];
+    for (const f of filenames) {
+      const p = path.join(tempDir, f);
+      const buf = await fs.promises.readFile(p);
+      files.push(`data:image/jpeg;base64,${buf.toString("base64")}`);
+    }
+    return { files };
+  } catch (err: any) {
+    return { files: [] };
+  }
+});
+
 ipcMain.handle('save-pdf', async (_event, { html, landscape, filename, paperSize = 'A4' }) => {
   let pdfWin: BrowserWindow | null = null;
   try {
