@@ -15,7 +15,13 @@ if (isProd) {
   app.setPath('userData', `${app.getPath('userData')} (development)`)
 }
 
-app.disableHardwareAcceleration()
+if (process.env.ELECTRON_DISABLE_GPU === 'true') {
+  app.disableHardwareAcceleration()
+} else {
+  // Aktifkan akselerasi GPU & hardware rendering untuk performa kencang dan render 60fps
+  app.commandLine.appendSwitch('enable-gpu-rasterization')
+  app.commandLine.appendSwitch('enable-zero-copy')
+}
 
 ;(async () => {
   await app.whenReady()
