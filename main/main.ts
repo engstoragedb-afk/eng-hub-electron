@@ -60,6 +60,17 @@ ipcMain.handle('window-minimize', () => {
   if (win) win.minimize();
 });
 
+ipcMain.handle('window-flash', () => {
+  const windows = BrowserWindow.getAllWindows();
+  const win = windows.length > 0 ? windows[0] : null;
+  if (win) {
+    win.flashFrame(true);
+    if (process.platform === 'darwin') {
+      app.dock?.bounce('critical');
+    }
+  }
+});
+
 ipcMain.handle('window-maximize', () => {
   const windows = require('electron').BrowserWindow.getAllWindows();
   const win = windows.length > 0 ? windows[0] : null;
