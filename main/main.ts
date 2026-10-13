@@ -1,6 +1,6 @@
 import path from 'path'
 import fs from 'fs'
-import { app, ipcMain, dialog, BrowserWindow } from 'electron'
+import { app, ipcMain, dialog, BrowserWindow, session, systemPreferences } from 'electron'
 import pkg from 'electron-updater'
 const { autoUpdater } = pkg;
 import serve from 'electron-serve'
@@ -25,6 +25,32 @@ if (process.env.ELECTRON_DISABLE_GPU === 'true') {
 
 ;(async () => {
   await app.whenReady()
+
+  // Izinkan akses media (audio/microphone) untuk fitur Voice Note di Chat
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    callback(true);
+  });
+
+  session.defaultSession.setPermissionCheckHandler((webContents, permission) => {
+    return true;
+  });
+
+  if (process.platform === 'darwin') {
+    try {
+      await systemPreferences.askForMediaAccess('microphone');
+    } catch (e) {
+      console.warn('askForMediaAccess error:', e);
+    }
+  }
+
+  ipcMain.handle('get-mic-status', async () => {
+    if (process.platform === 'darwin') {
+      const status = systemPreferences.getMediaAccessStatus('microphone');
+      const asked = await systemPreferences.askForMediaAccess('microphone');
+      return { status, asked };
+    }
+    return { status: 'not-darwin', asked: true };
+  });
 
   if (!isProd && process.platform === 'darwin') {
     app.dock?.setIcon(path.join(import.meta.dirname, '../renderer/public/images/icon.png'))
