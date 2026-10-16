@@ -194,6 +194,7 @@ ipcMain.handle("evidence-get-temp", async (_event, { taskId }) => {
 
 ipcMain.handle('save-pdf', async (_event, { html, landscape, filename, paperSize = 'A4' }) => {
   let pdfWin: BrowserWindow | null = null;
+  let tempFilePath: string | null = null;
   try {
     pdfWin = new BrowserWindow({
       show: false,
@@ -205,7 +206,10 @@ ipcMain.handle('save-pdf', async (_event, { html, landscape, filename, paperSize
       }
     });
 
-    await pdfWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+    const tempDir = app.getPath('temp');
+    tempFilePath = path.join(tempDir, `print_${Date.now()}_${Math.random().toString(36).slice(2)}.html`);
+    await fs.promises.writeFile(tempFilePath, html, 'utf-8');
+    await pdfWin.loadFile(tempFilePath);
 
     // Wait for DOM & CSS rendering to complete
     await new Promise((resolve) => setTimeout(resolve, 350));
@@ -244,6 +248,12 @@ ipcMain.handle('save-pdf', async (_event, { html, landscape, filename, paperSize
       pdfWin.destroy();
     }
     return { success: false, error: err.message };
+  } finally {
+    if (tempFilePath) {
+      try {
+        await fs.promises.unlink(tempFilePath);
+      } catch (_) {}
+    }
   }
 });
 
