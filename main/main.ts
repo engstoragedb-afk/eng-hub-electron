@@ -65,6 +65,18 @@ if (process.env.ELECTRON_DISABLE_GPU === 'true') {
           return true;
         } catch (_) {}
       }
+    } else if (process.platform === 'win32') {
+      try {
+        await shell.openExternal('ms-settings:privacy-microphone');
+        return true;
+      } catch (e) {
+        console.warn('Error opening Windows mic settings:', e);
+        try {
+          const { exec } = require('child_process');
+          exec('start ms-settings:privacy-microphone');
+          return true;
+        } catch (_) {}
+      }
     }
     return false;
   });
