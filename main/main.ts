@@ -1,6 +1,6 @@
 import path from 'path'
 import fs from 'fs'
-import { app, ipcMain, dialog, BrowserWindow, session, systemPreferences } from 'electron'
+import { app, ipcMain, dialog, BrowserWindow, session, systemPreferences, shell } from 'electron'
 import pkg from 'electron-updater'
 const { autoUpdater } = pkg;
 import serve from 'electron-serve'
@@ -50,6 +50,23 @@ if (process.env.ELECTRON_DISABLE_GPU === 'true') {
       return { status, asked };
     }
     return { status: 'not-darwin', asked: true };
+  });
+
+  ipcMain.handle('open-mic-settings', async () => {
+    if (process.platform === 'darwin') {
+      try {
+        await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone');
+        return true;
+      } catch (e) {
+        console.warn('Error opening mic settings:', e);
+        try {
+          const { exec } = require('child_process');
+          exec('open "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone"');
+          return true;
+        } catch (_) {}
+      }
+    }
+    return false;
   });
 
   if (!isProd && process.platform === 'darwin') {
