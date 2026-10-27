@@ -109,15 +109,13 @@ app.on('window-all-closed', () => {
   app.quit()
 })
 
-ipcMain.handle('window-minimize', () => {
-  const windows = require('electron').BrowserWindow.getAllWindows();
-  const win = windows.length > 0 ? windows[0] : null;
+ipcMain.handle('window-minimize', (event) => {
+  const win = (event && event.sender ? BrowserWindow.fromWebContents(event.sender) : null) || BrowserWindow.getFocusedWindow();
   if (win) win.minimize();
 });
 
-ipcMain.handle('window-flash', () => {
-  const windows = BrowserWindow.getAllWindows();
-  const win = windows.length > 0 ? windows[0] : null;
+ipcMain.handle('window-flash', (event) => {
+  const win = (event && event.sender ? BrowserWindow.fromWebContents(event.sender) : null) || BrowserWindow.getFocusedWindow();
   if (win) {
     win.flashFrame(true);
     if (process.platform === 'darwin') {
@@ -126,9 +124,8 @@ ipcMain.handle('window-flash', () => {
   }
 });
 
-ipcMain.handle('window-maximize', () => {
-  const windows = require('electron').BrowserWindow.getAllWindows();
-  const win = windows.length > 0 ? windows[0] : null;
+ipcMain.handle('window-maximize', (event) => {
+  const win = (event && event.sender ? BrowserWindow.fromWebContents(event.sender) : null) || BrowserWindow.getFocusedWindow();
   if (win) {
     if (win.isFullScreen()) {
       win.setFullScreen(false);
@@ -138,10 +135,15 @@ ipcMain.handle('window-maximize', () => {
   }
 });
 
-ipcMain.handle('window-close', () => {
-  const windows = require('electron').BrowserWindow.getAllWindows();
-  const win = windows.length > 0 ? windows[0] : null;
+ipcMain.handle('window-close', (event) => {
+  const allWindows = BrowserWindow.getAllWindows();
+  const win = (event && event.sender ? BrowserWindow.fromWebContents(event.sender) : null) || BrowserWindow.getFocusedWindow() || (allWindows.length > 0 ? allWindows[0] : null);
   if (!win) return;
+  
+  if (allWindows.length > 1) {
+    win.close();
+    return;
+  }
   
   const response = dialog.showMessageBoxSync(win, {
     type: 'question',
@@ -158,9 +160,12 @@ ipcMain.handle('window-close', () => {
 });
 
 ipcMain.handle('request-quit', () => {
-  const windows = require('electron').BrowserWindow.getAllWindows();
+  const windows = BrowserWindow.getAllWindows();
   const win = windows.length > 0 ? windows[0] : null;
-  if (!win) return;
+  if (!win) {
+    app.quit();
+    return;
+  }
   
   const response = dialog.showMessageBoxSync(win, {
     type: 'question',
@@ -174,6 +179,73 @@ ipcMain.handle('request-quit', () => {
   if (response === 1) {
     app.quit();
   }
+});
+
+ipcMain.handle('window-duplicate', async (event, targetRoute?: string) => {
+  const currentWin = (event && event.sender ? BrowserWindow.fromWebContents(event.sender) : null) || BrowserWindow.getFocusedWindow();
+  let x: number | undefined;
+  let y: number | undefined;
+  let width = 1200;
+  let height = 800;
+
+  if (currentWin && !currentWin.isFullScreen()) {
+    const bounds = currentWin.getBounds();
+    x = bounds.x + 30;
+    y = bounds.y + 30;
+    width = bounds.width;
+    height = bounds.height;
+  }
+
+  const newWin = new BrowserWindow({
+    width,
+    height,
+    x,
+    y,
+    fullscreen: false,
+    autoHideMenuBar: true,
+    title: 'Eng Hub Panel',
+    webPreferences: {
+      preload: path.join(import.meta.dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+    icon: isProd ? undefined : path.join(import.meta.dirname, '../renderer/public/images/icon.png'),
+  });
+
+  const port = process.argv[2] || '8888';
+  let targetUrl: string;
+  let fallbackUrl: string;
+
+  if (isProd) {
+    fallbackUrl = 'app://./home';
+    if (targetRoute && targetRoute !== '/' && targetRoute !== '/home') {
+      const cleanPath = targetRoute.replace(/^\//, '').split('?')[0];
+      targetUrl = `app://./${cleanPath}`;
+    } else {
+      targetUrl = fallbackUrl;
+    }
+  } else {
+    fallbackUrl = `http://localhost:${port}/home`;
+    if (targetRoute && targetRoute !== '/') {
+      const route = targetRoute.startsWith('/') ? targetRoute : `/${targetRoute}`;
+      targetUrl = `http://localhost:${port}${route}`;
+    } else {
+      targetUrl = fallbackUrl;
+    }
+  }
+
+  try {
+    await newWin.loadURL(targetUrl);
+  } catch (err) {
+    console.warn(`[window-duplicate] Gagal memuat ${targetUrl}, fallback ke ${fallbackUrl}:`, err);
+    try {
+      await newWin.loadURL(fallbackUrl);
+    } catch (e2) {
+      console.error('[window-duplicate] Gagal memuat fallback URL:', e2);
+    }
+  }
+
+  return true;
 });
 
 
