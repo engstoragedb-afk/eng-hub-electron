@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "jsx": "preserve",
     "module": "preserve",
     "strict": true,
     "noEmit": true,
