@@ -1,6 +1,6 @@
 import path from 'path'
 import fs from 'fs'
-import { app, ipcMain, dialog, BrowserWindow, session, systemPreferences, shell } from 'electron'
+import { app, ipcMain, dialog, BrowserWindow, session, systemPreferences, shell, net } from 'electron'
 import pkg from 'electron-updater'
 const { autoUpdater } = pkg;
 import serve from 'electron-serve'
@@ -22,6 +22,199 @@ if (process.env.ELECTRON_DISABLE_GPU === 'true') {
   app.commandLine.appendSwitch('enable-gpu-rasterization')
   app.commandLine.appendSwitch('enable-zero-copy')
 }
+
+const DEFAULT_API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL === '/api'
+    ? 'http://127.0.0.1:3012/api'
+    : (process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:3012/api');
+
+let isAppQuittingWithCleanup = false;
+let isExitCleanupDone = false;
+let syncedAuthSession: { token: string; apiBaseUrl: string } | null = null;
+const appWindowIds = new Set<number>();
+
+const getLiveAppWindows = () => {
+  return BrowserWindow.getAllWindows().filter(
+    (w) => !w.isDestroyed() && appWindowIds.has(w.id)
+  );
+};
+
+const withTimeout = <T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+};
+
+const readAuthTokenFromWindows = async (): Promise<string> => {
+  const windows = BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed());
+  for (const win of windows) {
+    try {
+      if (win.webContents && !win.webContents.isDestroyed()) {
+        const token = await withTimeout(
+          win.webContents.executeJavaScript(`
+            (() => {
+              try {
+                const raw = localStorage.getItem('auth');
+                if (!raw) return '';
+                const parsed = JSON.parse(raw);
+                return (parsed && typeof parsed.token === 'string') ? parsed.token : '';
+              } catch (e) {
+                return '';
+              }
+            })()
+          `).catch(() => ''),
+          600,
+          ''
+        );
+        if (token) return token;
+      }
+    } catch {}
+  }
+  return '';
+};
+
+const logoutBackendSession = async (token?: string, apiBaseUrl?: string) => {
+  const targetToken = token || syncedAuthSession?.token || '';
+  const baseUrl = (apiBaseUrl || syncedAuthSession?.apiBaseUrl || DEFAULT_API_BASE_URL).replace(/\/+$/, '');
+  if (!targetToken) return;
+
+  if (syncedAuthSession?.token === targetToken) {
+    syncedAuthSession = null;
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 2500);
+  try {
+    await net.fetch(`${baseUrl}/user/logout`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${targetToken}`,
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': '69420',
+      },
+      signal: controller.signal,
+    });
+  } catch (err) {
+    console.warn('[auth-exit] Gagal memanggil /user/logout saat menutup aplikasi:', err);
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
+const clearAuthSessionOnExit = async (explicitAuth?: { token?: string; apiBaseUrl?: string }) => {
+  if (isExitCleanupDone) return;
+  isExitCleanupDone = true;
+
+  let token = explicitAuth?.token || syncedAuthSession?.token || '';
+  const apiBaseUrl = explicitAuth?.apiBaseUrl || syncedAuthSession?.apiBaseUrl || DEFAULT_API_BASE_URL;
+
+  if (!token) {
+    token = await readAuthTokenFromWindows();
+  }
+
+  if (token) {
+    await logoutBackendSession(token, apiBaseUrl);
+  }
+  syncedAuthSession = null;
+
+  const windows = BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed());
+  await Promise.all(
+    windows.map(async (win) => {
+      try {
+        if (win.webContents && !win.webContents.isDestroyed()) {
+          await withTimeout(
+            win.webContents.executeJavaScript(`
+              try {
+                localStorage.removeItem('auth');
+                localStorage.setItem('auth', '{}');
+                sessionStorage.clear();
+              } catch(e) {}
+            `).catch(() => {}),
+            600,
+            undefined
+          );
+        }
+      } catch {}
+    })
+  );
+};
+
+const terminateAppCleanly = () => {
+  isAppQuittingWithCleanup = true;
+  const windows = BrowserWindow.getAllWindows();
+  for (const win of windows) {
+    try {
+      if (!win.isDestroyed()) {
+        if (win.isFullScreen()) {
+          win.destroy();
+        } else {
+          win.close();
+        }
+      }
+    } catch {}
+  }
+
+  setTimeout(() => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      try {
+        if (!win.isDestroyed()) {
+          win.destroy();
+        }
+      } catch {}
+    }
+    app.quit();
+  }, 250).unref();
+
+  setTimeout(() => {
+    app.exit(0);
+  }, 1500).unref();
+
+  app.quit();
+};
+
+const registerAppWindow = (win: BrowserWindow) => {
+  const winId = win.id;
+  appWindowIds.add(winId);
+
+  win.on('closed', () => {
+    appWindowIds.delete(winId);
+  });
+
+  win.webContents.on('will-prevent-unload', (event) => {
+    if (isAppQuittingWithCleanup) {
+      event.preventDefault();
+      return;
+    }
+    const response = dialog.showMessageBoxSync(win, {
+      type: 'question',
+      buttons: ['Tetap di Halaman', 'Tutup Jendela'],
+      defaultId: 0,
+      cancelId: 0,
+      title: 'Perubahan Belum Disimpan',
+      message: 'Formulir memiliki perubahan yang belum disimpan. Tetap tutup jendela ini?',
+    });
+    if (response === 1) {
+      event.preventDefault();
+    }
+  });
+
+  win.on('close', (event) => {
+    if (isAppQuittingWithCleanup) {
+      return;
+    }
+    const liveAppWindows = getLiveAppWindows();
+    if (liveAppWindows.length <= 1) {
+      event.preventDefault();
+      isAppQuittingWithCleanup = true;
+      void (async () => {
+        await clearAuthSessionOnExit();
+        terminateAppCleanly();
+      })();
+    }
+  });
+};
 
 ;(async () => {
   await app.whenReady()
@@ -92,9 +285,19 @@ if (process.env.ELECTRON_DISABLE_GPU === 'true') {
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(import.meta.dirname, 'preload.js'),
+      plugins: true,
     },
     icon: isProd ? undefined : path.join(import.meta.dirname, '../renderer/public/images/icon.png'),
   })
+
+  registerAppWindow(mainWindow);
+
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('http:') || url.startsWith('https:')) {
+      shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
 
   if (isProd) {
     await mainWindow.loadURL('app://./home')
@@ -105,9 +308,43 @@ if (process.env.ELECTRON_DISABLE_GPU === 'true') {
   }
 })()
 
+app.on('before-quit', (event) => {
+  if (!isAppQuittingWithCleanup) {
+    isAppQuittingWithCleanup = true;
+    event.preventDefault();
+    void (async () => {
+      await clearAuthSessionOnExit();
+      terminateAppCleanly();
+    })();
+  }
+});
+
 app.on('window-all-closed', () => {
   app.quit()
 })
+
+ipcMain.handle('auth-session-sync', (_event, payload?: { token?: string; apiBaseUrl?: string }) => {
+  const token = typeof payload?.token === 'string' ? payload.token.trim() : '';
+  const apiBaseUrl = typeof payload?.apiBaseUrl === 'string' && payload.apiBaseUrl.trim()
+    ? payload.apiBaseUrl.trim()
+    : (syncedAuthSession?.apiBaseUrl || DEFAULT_API_BASE_URL);
+
+  if (token) {
+    isExitCleanupDone = false;
+    syncedAuthSession = { token, apiBaseUrl };
+  } else {
+    syncedAuthSession = null;
+  }
+  return true;
+});
+
+ipcMain.handle('open-external', async (_event, url: string) => {
+  if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+    await shell.openExternal(url);
+    return true;
+  }
+  return false;
+});
 
 ipcMain.handle('window-minimize', (event) => {
   const win = (event && event.sender ? BrowserWindow.fromWebContents(event.sender) : null) || BrowserWindow.getFocusedWindow();
@@ -124,6 +361,23 @@ ipcMain.handle('window-flash', (event) => {
   }
 });
 
+ipcMain.handle('window-focus', (event) => {
+  const allWindows = BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed());
+  const win =
+    (event && event.sender ? BrowserWindow.fromWebContents(event.sender) : null) ||
+    BrowserWindow.getFocusedWindow() ||
+    (allWindows.length > 0 ? allWindows[0] : null);
+  if (win) {
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+  }
+  if (process.platform === 'darwin') {
+    app.focus({ steal: true });
+  }
+  return true;
+});
+
 ipcMain.handle('window-maximize', (event) => {
   const win = (event && event.sender ? BrowserWindow.fromWebContents(event.sender) : null) || BrowserWindow.getFocusedWindow();
   if (win) {
@@ -135,49 +389,103 @@ ipcMain.handle('window-maximize', (event) => {
   }
 });
 
-ipcMain.handle('window-close', (event) => {
-  const allWindows = BrowserWindow.getAllWindows();
-  const win = (event && event.sender ? BrowserWindow.fromWebContents(event.sender) : null) || BrowserWindow.getFocusedWindow() || (allWindows.length > 0 ? allWindows[0] : null);
-  if (!win) return;
-  
-  if (allWindows.length > 1) {
-    win.close();
-    return;
-  }
-  
-  const response = dialog.showMessageBoxSync(win, {
+const getTargetWindow = (event?: Electron.IpcMainInvokeEvent) => {
+  const liveAppWindows = getLiveAppWindows();
+  return (
+    (event && event.sender ? BrowserWindow.fromWebContents(event.sender) : null) ||
+    BrowserWindow.getFocusedWindow() ||
+    (liveAppWindows.length > 0 ? liveAppWindows[0] : null)
+  );
+};
+
+const promptExitConfirmation = async (win?: BrowserWindow | null) => {
+  const options: Electron.MessageBoxOptions = {
     type: 'question',
     buttons: ['Batal', 'Keluar'],
     defaultId: 0,
     cancelId: 0,
     title: 'Konfirmasi Keluar',
-    message: 'Apakah Anda yakin ingin keluar dari aplikasi?'
-  });
-  
-  if (response === 1) {
-    app.quit();
+    message: 'Apakah Anda yakin ingin keluar dari aplikasi?',
+    detail: 'Sesi akun Anda akan otomatis di-logout sebelum aplikasi ditutup.',
+  };
+
+  // On macOS/fullscreen windows, avoid parent-sheet lockups by presenting an app modal dialog
+  const result = win && !win.isDestroyed() && !win.isFullScreen()
+    ? await dialog.showMessageBox(win, options)
+    : await dialog.showMessageBox(options);
+  return result.response === 1;
+};
+
+ipcMain.handle('window-close-prepare', (event) => {
+  const liveAppWindows = getLiveAppWindows();
+  const win = getTargetWindow(event);
+  if (!win || win.isDestroyed()) {
+    return { action: 'confirm-quit', windowCount: liveAppWindows.length };
+  }
+
+  if (liveAppWindows.length > 1) {
+    if (win.isFullScreen()) {
+      win.destroy();
+    } else {
+      win.close();
+    }
+    return { action: 'closed-secondary', windowCount: Math.max(0, liveAppWindows.length - 1) };
+  }
+
+  return { action: 'confirm-quit', windowCount: liveAppWindows.length };
+});
+
+ipcMain.handle('app-quit-confirmed', async (_event, payload?: { token?: string; apiBaseUrl?: string }) => {
+  if (payload?.token) {
+    isExitCleanupDone = false;
+    syncedAuthSession = {
+      token: payload.token,
+      apiBaseUrl: payload.apiBaseUrl || syncedAuthSession?.apiBaseUrl || DEFAULT_API_BASE_URL,
+    };
+  }
+  isAppQuittingWithCleanup = true;
+  await clearAuthSessionOnExit(payload);
+  terminateAppCleanly();
+  return true;
+});
+
+ipcMain.handle('window-close', async (event) => {
+  const liveAppWindows = getLiveAppWindows();
+  const win = getTargetWindow(event);
+  if (!win || win.isDestroyed()) return;
+
+  if (liveAppWindows.length > 1) {
+    if (win.isFullScreen()) {
+      win.destroy();
+    } else {
+      win.close();
+    }
+    return;
+  }
+
+  const confirmed = await promptExitConfirmation(win);
+  if (confirmed) {
+    isAppQuittingWithCleanup = true;
+    await clearAuthSessionOnExit();
+    terminateAppCleanly();
   }
 });
 
-ipcMain.handle('request-quit', () => {
-  const windows = BrowserWindow.getAllWindows();
-  const win = windows.length > 0 ? windows[0] : null;
+ipcMain.handle('request-quit', async () => {
+  const liveAppWindows = getLiveAppWindows();
+  const win = liveAppWindows.length > 0 ? liveAppWindows[0] : null;
   if (!win) {
-    app.quit();
+    isAppQuittingWithCleanup = true;
+    await clearAuthSessionOnExit();
+    terminateAppCleanly();
     return;
   }
-  
-  const response = dialog.showMessageBoxSync(win, {
-    type: 'question',
-    buttons: ['Batal', 'Keluar'],
-    defaultId: 0,
-    cancelId: 0,
-    title: 'Konfirmasi Keluar',
-    message: 'Apakah Anda yakin ingin keluar dari aplikasi?'
-  });
-  
-  if (response === 1) {
-    app.quit();
+
+  const confirmed = await promptExitConfirmation(win);
+  if (confirmed) {
+    isAppQuittingWithCleanup = true;
+    await clearAuthSessionOnExit();
+    terminateAppCleanly();
   }
 });
 
@@ -208,9 +516,12 @@ ipcMain.handle('window-duplicate', async (event, targetRoute?: string) => {
       preload: path.join(import.meta.dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
+      plugins: true,
     },
     icon: isProd ? undefined : path.join(import.meta.dirname, '../renderer/public/images/icon.png'),
   });
+
+  registerAppWindow(newWin);
 
   const port = process.argv[2] || '8888';
   let targetUrl: string;
